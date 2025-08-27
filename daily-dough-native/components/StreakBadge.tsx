@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { Flame } from "lucide-react-native";
 
 export function StreakBadge({
   count,
@@ -16,23 +17,32 @@ export function StreakBadge({
       : { bg: "#FFEDD5", text: "#C2410C" };
   return (
     <View style={[styles.wrap, { backgroundColor: colors.bg }]}>
-      <Text style={[styles.count, { color: colors.text }]}>{count}</Text>
-      {!!label && (
-        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
-      )}
+      <Flame size={42} color={colors.text} />
+      <View style={styles.textContainer}>
+        <Text style={[styles.count, { color: colors.text }]}>{count}</Text>
+        {!!label && (
+          <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 24,
     flexDirection: "row",
-    gap: 6,
+    gap: 12,
     alignItems: "center",
+    flex: 1,
+    maxWidth: "48%",
   },
-  count: { fontSize: 14, fontWeight: "700" },
-  label: { fontSize: 12, fontWeight: "500" },
+  textContainer: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  count: { fontSize: 28, fontWeight: "800", lineHeight: 32 },
+  label: { fontSize: 11, fontWeight: "500", marginTop: 2 },
 });

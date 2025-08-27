@@ -12,19 +12,25 @@ npm install
 
 ### 2. Environment Variables
 
+**Recommended Setup (Vercel):**
+
+1. Link your project to Vercel: `vercel link`
+2. Pull environment variables: `vercel env pull .env.development.local`
+3. Add your Plaid credentials to `.env.development.local`
+
+**Manual Setup (Alternative):**
 Copy `.env.example` to `.env.local` and fill in your values:
 
 ```bash
 cp .env.example .env.local
 ```
 
-**Required variables:**
+**Required variables to add manually:**
 
 - `PLAID_CLIENT_ID` - Your Plaid client ID
 - `PLAID_SECRET` - Your Plaid secret key
 - `PLAID_ENV` - Environment (sandbox/development/production)
 - `ENCRYPTION_KEY` - 32-byte base64 key for encrypting access tokens
-- Database connection strings (see Vercel Postgres setup below)
 
 ### 3. Generate Encryption Key
 
@@ -34,12 +40,13 @@ openssl rand -base64 32
 
 ### 4. Database Setup
 
-#### Option A: Vercel Postgres (Recommended for MVP)
+#### Vercel Postgres (Recommended)
 
-1. Go to your Vercel dashboard
-2. Create a new Postgres database
-3. Copy the environment variables to your `.env.local`
-4. Run the database schema:
+1. Go to your Vercel dashboard → Storage → Create Database → Postgres
+2. Name it (e.g., "daily-dough-db")
+3. Connect it to your project
+4. Run `vercel env pull .env.development.local` to get connection strings
+5. Create the database table in Neon SQL Editor:
 
 ```sql
 CREATE TABLE IF NOT EXISTS user_items (
@@ -50,7 +57,9 @@ CREATE TABLE IF NOT EXISTS user_items (
 );
 ```
 
-#### Option B: Neon Postgres
+**Note:** Vercel Postgres uses Neon under the hood, so you'll get both `DATABASE_URL` and `POSTGRES_URL` variables.
+
+#### Alternative: Direct Neon Setup
 
 1. Create account at [neon.tech](https://neon.tech)
 2. Create a new database

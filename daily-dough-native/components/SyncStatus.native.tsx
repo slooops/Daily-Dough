@@ -43,7 +43,7 @@ export function SyncStatus({
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       <Badge variant={variant as any}>
         {icon}
-        {!compact ? ` ${text}` : ""}
+        {!compact && text}
       </Badge>
     </View>
   );

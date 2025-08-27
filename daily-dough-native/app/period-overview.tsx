@@ -1,11 +1,20 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Calendar, ChevronLeft, Flame, TrendingUp } from "lucide-react-native";
 import { Separator } from "../components/ui/Separator";
 import { SlushPill } from "../components/SlushPill";
 import { StreakBadge } from "../components/StreakBadge";
 import { Progress } from "../components/ui/Progress";
+import { Card, CardContent } from "../components/ui/Card";
+import { typography, spacing, borderRadius, colors } from "../styles/common";
 
 const periodData = {
   period: {
@@ -160,17 +169,17 @@ export default function PeriodOverviewScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Remaining Summary */}
-        <View style={styles.cardElevated}>
-          <View style={{ gap: 12 }}>
+        <Card variant="elevated" style={{ marginBottom: spacing.xl }}>
+          <CardContent style={{ gap: spacing.md, padding: spacing.xxl }}>
             <View style={styles.rowBetween}>
-              <Text style={styles.muted}>Remaining this period</Text>
+              <Text style={typography.label}>Remaining this period</Text>
               <Text
                 style={[
-                  styles.value,
+                  typography.value,
                   isOverBudget
-                    ? styles.danger
+                    ? { color: colors.semantic.danger }
                     : isLowBudget
-                    ? styles.warning
+                    ? { color: colors.semantic.warning }
                     : null,
                 ]}
               >
@@ -181,137 +190,139 @@ export default function PeriodOverviewScreen() {
             <Progress value={Math.max(0, Math.min(100, progressPercentage))} />
             <View style={styles.rowBetween}>
               <SlushPill amount={periodData.period.slush_current} />
-              <Text style={styles.muted}>
+              <Text style={typography.caption}>
                 {Math.max(0, 14 - periodData.calendar_days.length)} days left
               </Text>
             </View>
-          </View>
-        </View>
+          </CardContent>
+        </Card>
 
         {/* Heatmap */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
-              <Calendar size={16} color="#1D4ED8" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent style={{ gap: spacing.md, padding: spacing.xxl }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
+                <Calendar size={16} color="#1D4ED8" />
+              </View>
+              <Text style={typography.heading}>Daily Spending Heatmap</Text>
             </View>
-            <Text style={styles.cardTitle}>Daily Spending Heatmap</Text>
-          </View>
-          <View style={styles.grid7}>
-            {periodData.calendar_days.map((d, i) => (
-              <Pressable
-                key={d.date}
-                style={[styles.square, { backgroundColor: dayColor(d.status) }]}
-                onPress={() => setSelectedDay(d)}
-              />
-            ))}
-          </View>
-          <View style={[styles.rowCenter, { gap: 12, paddingTop: 8 }]}>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: "#3B82F6" }]}
-              />
-              <Text style={styles.legendText}>No spend</Text>
+            <View style={styles.gridContainer}>
+              <View style={styles.grid7}>
+                {periodData.calendar_days.map((d, i) => (
+                  <Pressable
+                    key={d.date}
+                    style={[
+                      styles.square,
+                      { backgroundColor: dayColor(d.status) },
+                    ]}
+                    onPress={() => setSelectedDay(d)}
+                  />
+                ))}
+              </View>
             </View>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: "#34D399" }]}
-              />
-              <Text style={styles.legendText}>Under</Text>
+            <View
+              style={[
+                styles.rowCenter,
+                { gap: spacing.md, paddingTop: spacing.sm },
+              ]}
+            >
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#3B82F6" }]}
+                />
+                <Text style={typography.caption}>No spend</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#34D399" }]}
+                />
+                <Text style={typography.caption}>Under</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#F87171" }]}
+                />
+                <Text style={typography.caption}>Over</Text>
+              </View>
             </View>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: "#F87171" }]}
-              />
-              <Text style={styles.legendText}>Over</Text>
-            </View>
-          </View>
-        </View>
+          </CardContent>
+        </Card>
 
         {/* Trend stub */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
-              <TrendingUp size={16} color="#16A34A" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent style={{ gap: spacing.md, padding: spacing.xxl }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
+                <TrendingUp size={16} color="#16A34A" />
+              </View>
+              <Text style={typography.heading}>Spending Trend</Text>
             </View>
-            <Text style={styles.cardTitle}>Spending Trend</Text>
-          </View>
-          <Text style={styles.muted}>Planned vs Actual coming soon</Text>
-          <View
-            style={{
-              height: 64,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              marginTop: 8,
-            }}
-          />
-        </View>
+            <Text style={typography.caption}>
+              Planned vs Actual coming soon
+            </Text>
+            <View
+              style={{
+                height: 64,
+                backgroundColor: "#F3F4F6",
+                borderRadius: borderRadius.xl,
+                marginTop: spacing.sm,
+              }}
+            />
+          </CardContent>
+        </Card>
 
         {/* Streaks */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#FFEDD5" }]}>
-              <Flame size={16} color="#EA580C" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent style={{ gap: spacing.md, padding: spacing.xxl }}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#FFEDD5" }]}>
+                <Flame size={16} color="#EA580C" />
+              </View>
+              <Text style={typography.heading}>Streaks This Period</Text>
             </View>
-            <Text style={styles.cardTitle}>Streaks This Period</Text>
-          </View>
-          <View style={styles.rowBetween}>
-            <StreakBadge
-              count={periodData.streaks.blue_days}
-              type="blue"
-              label="no-spend days"
-            />
-            <StreakBadge
-              count={periodData.streaks.orange_streak}
-              type="orange"
-              label="within budget"
-            />
-          </View>
-        </View>
+            <View style={styles.rowBetween}>
+              <StreakBadge
+                count={periodData.streaks.blue_days}
+                type="blue"
+                label="no-spend days"
+              />
+              <StreakBadge
+                count={periodData.streaks.orange_streak}
+                type="orange"
+                label="within budget"
+              />
+            </View>
+          </CardContent>
+        </Card>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: spacing.xl }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  backBtn: { padding: 8, borderRadius: 12 },
-  title: { fontSize: 18, fontWeight: "700", color: "#111827" },
-  subtle: { fontSize: 12, color: "#6B7280" },
-  scroll: { padding: 16 },
-  card: {
-    backgroundColor: "#fff",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    gap: 8,
+  backBtn: { padding: spacing.sm, borderRadius: borderRadius.lg },
+  title: typography.subtitle,
+  subtle: typography.caption,
+  scroll: { padding: spacing.lg },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
-  cardElevated: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    gap: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  cardHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   circle: {
     width: 28,
     height: 28,
@@ -319,7 +330,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cardTitle: { fontWeight: "600", fontSize: 16 },
   rowBetween: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,19 +341,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  value: { fontWeight: "600" },
-  muted: { fontSize: 12, color: "#6B7280" },
-  grid7: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 4 },
+  gridContainer: {
+    width: "100%",
+    alignItems: "center",
+  },
+  grid7: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    paddingTop: 4,
+    justifyContent: "center",
+    width: "100%",
+  },
   square: {
-    width: (360 - 16 * 2 - 8 * 6) / 7,
+    width:
+      (Dimensions.get("window").width -
+        spacing.lg * 2 -
+        spacing.xxl * 2 -
+        spacing.sm * 6) /
+      7,
     aspectRatio: 1,
-    borderRadius: 10,
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: colors.surface,
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   legendDot: { width: 12, height: 12, borderRadius: 6 },
-  legendText: { fontSize: 12, color: "#6B7280" },
-  danger: { color: "#DC2626" },
-  warning: { color: "#D97706" },
 });

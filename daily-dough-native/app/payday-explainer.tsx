@@ -11,6 +11,8 @@ import {
 } from "lucide-react-native";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
+import { Card, CardContent } from "../components/ui/Card";
+import { typography, spacing, borderRadius, colors } from "../styles/common";
 
 export default function PaydayExplainerScreen() {
   const router = useRouter();
@@ -31,162 +33,198 @@ export default function PaydayExplainerScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Overview */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={[styles.circle, { backgroundColor: "#2563EB" }]}>
-              <Calendar size={16} color="#fff" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.row}>
+              <View style={[styles.circle, { backgroundColor: "#2563EB" }]}>
+                <Calendar size={16} color="#fff" />
+              </View>
+              <Text style={typography.heading}>Budget Setup</Text>
             </View>
-            <Text style={styles.cardTitle}>Budget Setup</Text>
-          </View>
-          <Text style={[styles.muted, { marginTop: 6 }]}>
-            We anchor your budget to your actual payday so allowances align with
-            income.
-          </Text>
-        </View>
+            <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+              We anchor your budget to your actual payday so allowances align
+              with income.
+            </Text>
+          </CardContent>
+        </Card>
 
         {/* Bi-weekly */}
-        <View
-          style={[
-            styles.card,
-            { borderLeftWidth: 4, borderLeftColor: "#3B82F6" },
-          ]}
+        <Card
+          style={{
+            marginBottom: spacing.xl,
+            borderLeftWidth: 4,
+            borderLeftColor: "#3B82F6",
+          }}
         >
-          <View style={styles.row}>
-            <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
-              <Calendar size={16} color="#1D4ED8" />
+          <CardContent>
+            <View style={styles.row}>
+              <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
+                <Calendar size={16} color="#1D4ED8" />
+              </View>
+              <Text style={[typography.bodyMedium, { color: "#1D4ED8" }]}>
+                Bi-weekly (Default)
+              </Text>
+              <Badge variant="secondary" style={{ marginLeft: spacing.sm }}>
+                Most common
+              </Badge>
             </View>
-            <Text style={[styles.itemTitle, { color: "#1D4ED8" }]}>
-              Bi-weekly (Default)
-            </Text>
-            <Badge variant="secondary" style={{ marginLeft: 8 }}>
-              Most common
-            </Badge>
-          </View>
-          <View style={{ gap: 6, marginTop: 8 }}>
-            <Text style={styles.muted}>• Paycheck every 2 weeks (26/yr)</Text>
-            <Text style={styles.muted}>
-              • Budget periods align to pay dates
-            </Text>
-            <Text style={styles.muted}>
-              • 3-paycheck months handled automatically
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.pillInfo,
-              { backgroundColor: "#ECFDF5", marginTop: 10 },
-            ]}
-          >
-            <TrendingUp size={14} color="#16A34A" />
-            <Text style={[styles.muted, { color: "#166534", marginLeft: 6 }]}>
-              Daily = (Paycheck - Monthly bills ÷ 2) ÷ 14
-            </Text>
-          </View>
-        </View>
+            <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+              <Text style={typography.caption}>
+                • Paycheck every 2 weeks (26/yr)
+              </Text>
+              <Text style={typography.caption}>
+                • Budget periods align to pay dates
+              </Text>
+              <Text style={typography.caption}>
+                • 3-paycheck months handled automatically
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.pillInfo,
+                { backgroundColor: "#ECFDF5", marginTop: spacing.md },
+              ]}
+            >
+              <TrendingUp size={14} color="#16A34A" />
+              <Text
+                style={[
+                  typography.caption,
+                  { color: "#166534", marginLeft: spacing.xs },
+                ]}
+              >
+                Daily = (Paycheck - Monthly bills ÷ 2) ÷ 14
+              </Text>
+            </View>
+          </CardContent>
+        </Card>
 
         {/* Monthly */}
-        <View
-          style={[
-            styles.card,
-            { borderLeftWidth: 4, borderLeftColor: "#F59E0B" },
-          ]}
+        <Card
+          style={{
+            marginBottom: spacing.xl,
+            borderLeftWidth: 4,
+            borderLeftColor: "#F59E0B",
+          }}
         >
-          <View style={styles.row}>
-            <View style={[styles.circle, { backgroundColor: "#FFEDD5" }]}>
-              <Calendar size={16} color="#EA580C" />
+          <CardContent>
+            <View style={styles.row}>
+              <View style={[styles.circle, { backgroundColor: "#FFEDD5" }]}>
+                <Calendar size={16} color="#EA580C" />
+              </View>
+              <Text style={[typography.bodyMedium, { color: "#EA580C" }]}>
+                Monthly
+              </Text>
+              <Badge variant="secondary" style={{ marginLeft: spacing.sm }}>
+                Alternative
+              </Badge>
             </View>
-            <Text style={[styles.itemTitle, { color: "#EA580C" }]}>
-              Monthly
-            </Text>
-            <Badge variant="secondary" style={{ marginLeft: 8 }}>
-              Alternative
-            </Badge>
-          </View>
-          <View style={{ gap: 6, marginTop: 8 }}>
-            <Text style={styles.muted}>• Paycheck once a month (12/yr)</Text>
-            <Text style={styles.muted}>• Periods follow calendar months</Text>
-            <Text style={styles.muted}>• Simpler monthly planning</Text>
-          </View>
-          <View
-            style={[
-              styles.pillInfo,
-              { backgroundColor: "#ECFDF5", marginTop: 10 },
-            ]}
-          >
-            <DollarSign size={14} color="#16A34A" />
-            <Text style={[styles.muted, { color: "#166534", marginLeft: 6 }]}>
-              Daily = (Paycheck - Monthly bills) ÷ days in month
-            </Text>
-          </View>
-        </View>
+            <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+              <Text style={typography.caption}>
+                • Paycheck once a month (12/yr)
+              </Text>
+              <Text style={typography.caption}>
+                • Periods follow calendar months
+              </Text>
+              <Text style={typography.caption}>• Simpler monthly planning</Text>
+            </View>
+            <View
+              style={[
+                styles.pillInfo,
+                { backgroundColor: "#ECFDF5", marginTop: spacing.md },
+              ]}
+            >
+              <DollarSign size={14} color="#16A34A" />
+              <Text
+                style={[
+                  typography.caption,
+                  { color: "#166534", marginLeft: spacing.xs },
+                ]}
+              >
+                Daily = (Paycheck - Monthly bills) ÷ days in month
+              </Text>
+            </View>
+          </CardContent>
+        </Card>
 
         {/* Special Cases */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
-              <TrendingUp size={16} color="#16A34A" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.row}>
+              <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
+                <TrendingUp size={16} color="#16A34A" />
+              </View>
+              <Text style={typography.heading}>Special Cases</Text>
             </View>
-            <Text style={styles.cardTitle}>Special Cases</Text>
-          </View>
-          <View style={{ gap: 10, marginTop: 8 }}>
-            <View style={[styles.row, { alignItems: "flex-start" }]}>
-              <CheckCircle size={16} color="#16A34A" style={{ marginTop: 2 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>3-Paycheck Months</Text>
-                <Text style={styles.muted}>
-                  We detect them and boost discretionary accordingly.
-                </Text>
-                <Badge
-                  variant="default"
-                  style={{ marginTop: 6 }}
-                  textStyle={{ color: "#fff", fontSize: 10 }}
-                >
-                  💰 This month has 3 paychecks → discretionary higher
-                </Badge>
+            <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
+              <View style={[styles.row, { alignItems: "flex-start" }]}>
+                <CheckCircle
+                  size={16}
+                  color="#16A34A"
+                  style={{ marginTop: 2 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={typography.bodyMedium}>3-Paycheck Months</Text>
+                  <Text style={typography.caption}>
+                    We detect them and boost discretionary accordingly.
+                  </Text>
+                  <Badge
+                    variant="default"
+                    style={{ marginTop: spacing.xs }}
+                    textStyle={{ color: "#fff", fontSize: 10 }}
+                  >
+                    💰 This month has 3 paychecks → discretionary higher
+                  </Badge>
+                </View>
+              </View>
+              <View style={[styles.row, { alignItems: "flex-start" }]}>
+                <AlertCircle
+                  size={16}
+                  color="#2563EB"
+                  style={{ marginTop: 2 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={typography.bodyMedium}>Carryover Logic</Text>
+                  <Text style={typography.caption}>
+                    100% of daily over/under goes to Period Slush to smooth
+                    variations.
+                  </Text>
+                </View>
               </View>
             </View>
-            <View style={[styles.row, { alignItems: "flex-start" }]}>
-              <AlertCircle size={16} color="#2563EB" style={{ marginTop: 2 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>Carryover Logic</Text>
-                <Text style={styles.muted}>
-                  100% of daily over/under goes to Period Slush to smooth
-                  variations.
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
+          </CardContent>
+        </Card>
 
         {/* Setup Inputs */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={[styles.circle, { backgroundColor: "#F3F4F6" }]}>
-              <DollarSign size={16} color="#4B5563" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.row}>
+              <View style={[styles.circle, { backgroundColor: "#F3F4F6" }]}>
+                <DollarSign size={16} color="#4B5563" />
+              </View>
+              <Text style={typography.heading}>Setup Inputs</Text>
             </View>
-            <Text style={styles.cardTitle}>Setup Inputs</Text>
-          </View>
-          <View style={{ gap: 8, marginTop: 8 }}>
-            <Text style={styles.muted}>
-              • Payday anchor date (detected from linked accounts)
+            <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+              <Text style={typography.caption}>
+                • Payday anchor date (detected from linked accounts)
+              </Text>
+              <Text style={typography.caption}>
+                • Paycheck amounts (manual or auto)
+              </Text>
+              <Text style={typography.caption}>
+                • Monthly bills total (from flagged transactions)
+              </Text>
+            </View>
+            <Separator style={{ marginVertical: spacing.md }} />
+            <Text style={typography.caption}>
+              Rounding: daily allowances round to nearest $1; any remainder
+              applied on the last day (±$1).
             </Text>
-            <Text style={styles.muted}>
-              • Paycheck amounts (manual or auto)
-            </Text>
-            <Text style={styles.muted}>
-              • Monthly bills total (from flagged transactions)
-            </Text>
-          </View>
-          <Separator style={{ marginVertical: 10 }} />
-          <Text style={styles.muted}>
-            Rounding: daily allowances round to nearest $1; any remainder
-            applied on the last day (±$1).
-          </Text>
-        </View>
+          </CardContent>
+        </Card>
 
         <Pressable
           onPress={() => router.back()}
-          style={[styles.buttonPrimary, { marginBottom: 24 }]}
+          style={[styles.buttonPrimary, { marginBottom: spacing.xl }]}
         >
           <Text style={[styles.buttonPrimaryText]}>Back to Settings</Text>
         </Pressable>
@@ -196,31 +234,22 @@ export default function PaydayExplainerScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border,
   },
-  backBtn: { padding: 8, borderRadius: 12 },
-  title: { fontSize: 18, fontWeight: "700", color: "#111827" },
-  subtle: { fontSize: 12, color: "#6B7280" },
-  scroll: { padding: 16 },
-  card: {
-    backgroundColor: "#fff",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    gap: 8,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  backBtn: { padding: spacing.sm, borderRadius: borderRadius.md },
+  title: typography.subtitle,
+  subtle: typography.caption,
+  scroll: { padding: spacing.lg },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   circle: {
     width: 28,
     height: 28,
@@ -228,22 +257,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cardTitle: { fontWeight: "600", fontSize: 16 },
-  itemTitle: { fontSize: 14, fontWeight: "500", color: "#111827" },
-  muted: { fontSize: 12, color: "#6B7280" },
   pillInfo: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.pill,
     flexDirection: "row",
     alignItems: "center",
   },
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    borderRadius: 16,
-    paddingVertical: 12,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonPrimaryText: { color: "#fff", fontWeight: "700" },
+  buttonPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

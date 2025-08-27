@@ -15,6 +15,17 @@ export function Badge({
   textStyle?: TextStyle;
 }) {
   const vStyles = variantStyles[variant] || variantStyles.secondary;
+  const childArray = React.Children.toArray(children);
+
+  // NEW - Smart spacing logic
+  const hasText = childArray.some(
+    (child) => typeof child === "string" || typeof child === "number"
+  );
+  const hasNonTextChildren = childArray.some(
+    (child) => typeof child !== "string" && typeof child !== "number"
+  );
+  const shouldAddSpacing = hasText && hasNonTextChildren;
+
   return (
     <View style={[styles.base, vStyles.container, style]}>
       {React.Children.map(children, (child, idx) =>
@@ -23,7 +34,10 @@ export function Badge({
             {child}
           </Text>
         ) : (
-          <View key={idx} style={{ marginRight: 4 }}>
+          <View
+            key={idx}
+            style={shouldAddSpacing ? { marginRight: 4 } : undefined}
+          >
             {child as any}
           </View>
         )

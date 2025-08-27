@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform, Animated } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import { MotiView } from "moti";
+
+// Import MotiView only for mobile platforms
+let MotiView: any = View;
+if (Platform.OS !== "web") {
+  try {
+    const moti = require("moti");
+    MotiView = moti.MotiView;
+  } catch (error) {
+    console.warn("Moti not available, using regular View");
+  }
+}
 
 type Variant =
   | "normal"
@@ -76,30 +86,60 @@ export function DailyDial({
     variant === "morning-animate" ? animatedAmount : remaining;
   const dashOffset = CIRC * (1 - (isOver ? 1 : percentage));
 
+  // Web-compatible confetti component
+  const ConfettiPiece = ({ index }: { index: number }) => {
+    if (Platform.OS === "web") {
+      // Simple web animation using regular View
+      return (
+        <View
+          style={[
+            styles.confetti,
+            {
+              left: `${50 + (Math.random() - 0.5) * 40}%`,
+              top: `${50 + (Math.random() - 0.5) * 40}%`,
+              backgroundColor: colors.dial,
+              opacity: showConfetti ? 1 : 0,
+              transform: [
+                { scale: showConfetti ? 1.1 : 0 },
+                { translateX: showConfetti ? (Math.random() - 0.5) * 120 : 0 },
+                { translateY: showConfetti ? (Math.random() - 0.5) * 120 : 0 },
+              ],
+            },
+          ]}
+        />
+      );
+    }
+
+    // Use MotiView for mobile platforms
+    return (
+      <MotiView
+        key={index}
+        from={{ opacity: 0, scale: 0, translateX: 0, translateY: 0 }}
+        animate={{
+          opacity: 1,
+          scale: 1.1,
+          translateX: (Math.random() - 0.5) * 120,
+          translateY: (Math.random() - 0.5) * 120,
+        }}
+        transition={{ type: "timing", duration: 800, delay: index * 50 }}
+        style={[
+          styles.confetti,
+          {
+            left: `${50 + (Math.random() - 0.5) * 40}%`,
+            top: `${50 + (Math.random() - 0.5) * 40}%`,
+            backgroundColor: colors.dial,
+          },
+        ]}
+      />
+    );
+  };
+
   return (
     <View style={styles.center}>
       {showConfetti && (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
           {Array.from({ length: 12 }).map((_, i) => (
-            <MotiView
-              key={i}
-              from={{ opacity: 0, scale: 0, translateX: 0, translateY: 0 }}
-              animate={{
-                opacity: 1,
-                scale: 1.1,
-                translateX: (Math.random() - 0.5) * 120,
-                translateY: (Math.random() - 0.5) * 120,
-              }}
-              transition={{ type: "timing", duration: 800, delay: i * 50 }}
-              style={[
-                styles.confetti,
-                {
-                  left: `${50 + (Math.random() - 0.5) * 40}%`,
-                  top: `${50 + (Math.random() - 0.5) * 40}%`,
-                  backgroundColor: colors.dial,
-                },
-              ]}
-            />
+            <ConfettiPiece key={i} index={i} />
           ))}
         </View>
       )}
@@ -116,7 +156,7 @@ export function DailyDial({
             cy="50"
             r={R}
             stroke={colors.bg}
-            strokeWidth={8}
+            strokeWidth={10}
             fill="none"
           />
           <Circle
@@ -124,7 +164,7 @@ export function DailyDial({
             cy="50"
             r={R}
             stroke={colors.dial}
-            strokeWidth={8}
+            strokeWidth={10}
             strokeLinecap="round"
             fill="none"
             strokeDasharray={CIRC}
@@ -151,7 +191,7 @@ export function DailyDial({
 
 const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
-  dialWrap: { width: 192, height: 192 },
+  dialWrap: { width: 220, height: 220 },
   centerContent: {
     position: "absolute",
     left: 0,
@@ -162,6 +202,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   caption: { fontSize: 12, color: "#6B7280", marginBottom: 4 },
-  amount: { fontSize: 32, fontWeight: "600" },
-  confetti: { position: "absolute", width: 10, height: 10, borderRadius: 5 },
+  amount: { fontSize: 48, fontWeight: "600" },
+  confetti: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
 });

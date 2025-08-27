@@ -12,8 +12,10 @@ import {
 } from "lucide-react-native";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
+import { Card, CardContent } from "../components/ui/Card";
 import { SyncStatus } from "../components/SyncStatus.native";
 import { SlushPill } from "../components/SlushPill";
+import { typography, spacing, borderRadius, colors } from "../styles/common";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -57,182 +59,195 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Accounts & Sync */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#2563EB" }]}>
-              <Building2 size={16} color="#fff" />
-            </View>
-            <Text style={styles.cardTitle}>Accounts & Sync</Text>
-          </View>
-          <View>
-            {accounts.map((a, i) => (
-              <View key={a.id}>
-                <View style={styles.rowBetween}>
-                  <View style={styles.row}>
-                    <View style={styles.accountLogo}>
-                      <Text style={{ fontSize: 16 }}>{a.logo}</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.itemTitle}>{a.name}</Text>
-                      <Text style={styles.muted}>{a.provider}</Text>
-                    </View>
-                  </View>
-                  <SyncStatus status={a.status} lastSynced={a.lastSynced} />
-                </View>
-                {i < accounts.length - 1 && <Separator />}
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#2563EB" }]}>
+                <Building2 size={16} color="#fff" />
               </View>
-            ))}
-          </View>
-          <Separator style={{ marginVertical: 12 }} />
+              <Text style={typography.heading}>Accounts & Sync</Text>
+            </View>
+            <View>
+              {accounts.map((a, i) => (
+                <View key={a.id}>
+                  <View style={styles.rowBetween}>
+                    <View style={styles.row}>
+                      <View style={styles.accountLogo}>
+                        <Text style={{ fontSize: 16 }}>{a.logo}</Text>
+                      </View>
+                      <View>
+                        <Text style={typography.bodyMedium}>{a.name}</Text>
+                        <Text style={typography.caption}>{a.provider}</Text>
+                      </View>
+                    </View>
+                    <SyncStatus status={a.status} lastSynced={a.lastSynced} />
+                  </View>
+                  {i < accounts.length - 1 && (
+                    <Separator style={{ marginVertical: spacing.md }} />
+                  )}
+                </View>
+              ))}
+            </View>
+            <Separator style={{ marginVertical: spacing.md }} />
 
-          <Pressable
-            onPress={() => router.push("/connect-accounts")}
-            style={[styles.buttonOutline, styles.rowCenter]}
-          >
-            <Plus size={16} color="#111827" style={{ marginRight: 6 }} />
-            <Text style={styles.buttonText}>Connect New Account</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={() => router.push("/connect-accounts")}
+              style={[styles.buttonOutline, styles.rowCenter]}
+            >
+              <Plus size={16} color="#111827" style={{ marginRight: 6 }} />
+              <Text style={[typography.bodyMedium, styles.buttonText]}>
+                Connect New Account
+              </Text>
+            </Pressable>
+          </CardContent>
+        </Card>
 
         {/* Bills & Ignore Rules */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#FDBA74" }]}>
-              <Receipt size={16} color="#C2410C" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#FDBA74" }]}>
+                <Receipt size={16} color="#C2410C" />
+              </View>
+              <Text style={typography.heading}>Bills & Ignore Rules</Text>
             </View>
-            <Text style={styles.cardTitle}>Bills & Ignore Rules</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push("/manage-bills")}
-            style={[styles.settingItem, styles.rowBetween]}
-          >
-            <View style={styles.row}>
-              <Receipt size={16} color="#111827" />
-              <Text style={styles.settingTitle}>Manage Bills</Text>
-            </View>
-            <ChevronRight size={16} color="#6B7280" />
-          </Pressable>
-          <Separator />
-          <Pressable
-            onPress={() => router.push("/ignore-rules")}
-            style={[styles.settingItem, styles.rowBetween]}
-          >
-            <View style={styles.row}>
-              <Info size={16} color="#111827" />
-              <Text style={styles.settingTitle}>Ignored Transactions</Text>
-            </View>
-            <ChevronRight size={16} color="#6B7280" />
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={() => router.push("/manage-bills")}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <View style={styles.row}>
+                <Receipt size={16} color="#111827" />
+                <Text style={typography.body}>Manage Bills</Text>
+              </View>
+              <ChevronRight size={16} color="#6B7280" />
+            </Pressable>
+            <Separator style={{ marginVertical: spacing.sm }} />
+            <Pressable
+              onPress={() => router.push("/ignore-rules")}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <View style={styles.row}>
+                <Info size={16} color="#111827" />
+                <Text style={typography.body}>Ignored Transactions</Text>
+              </View>
+              <ChevronRight size={16} color="#6B7280" />
+            </Pressable>
+          </CardContent>
+        </Card>
 
         {/* Manual Inputs */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#F3F4F6" }]}>
-              <Plus size={16} color="#4B5563" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#F3F4F6" }]}>
+                <Plus size={16} color="#4B5563" />
+              </View>
+              <Text style={typography.heading}>Manual Inputs</Text>
+              <Badge style={{ marginLeft: spacing.sm }} variant="secondary">
+                Temporary
+              </Badge>
             </View>
-            <Text style={styles.cardTitle}>Manual Inputs</Text>
-            <Badge style={{ marginLeft: 8 }} variant="secondary">
-              Temporary
-            </Badge>
-          </View>
-          <Pressable
-            onPress={() => setManualInputEnabled(!manualInputEnabled)}
-            style={[styles.settingItem, styles.rowBetween]}
-          >
-            <View>
-              <Text style={styles.itemTitle}>Enable manual transactions</Text>
-              <Text style={styles.muted}>
-                Add transactions manually when needed
+            <Pressable
+              onPress={() => setManualInputEnabled(!manualInputEnabled)}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <View>
+                <Text style={typography.bodyMedium}>
+                  Enable manual transactions
+                </Text>
+                <Text style={typography.caption}>
+                  Add transactions manually when needed
+                </Text>
+              </View>
+              <Text style={typography.bodySemibold}>
+                {manualInputEnabled ? "On" : "Off"}
               </Text>
-            </View>
-            <Text style={styles.switchText}>
-              {manualInputEnabled ? "On" : "Off"}
-            </Text>
-          </Pressable>
-          {manualInputEnabled && (
-            <View>
-              <Separator />
-              <Pressable
-                style={[
-                  styles.buttonOutline,
-                  styles.rowCenter,
-                  { marginTop: 12 },
-                ]}
-              >
-                <Plus size={16} color="#111827" style={{ marginRight: 6 }} />
-                <Text style={styles.buttonText}>Add Manual Transaction</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
+            </Pressable>
+            {manualInputEnabled && (
+              <View>
+                <Separator style={{ marginVertical: spacing.md }} />
+                <Pressable
+                  style={[
+                    styles.buttonOutline,
+                    styles.rowCenter,
+                    { marginTop: spacing.md },
+                  ]}
+                >
+                  <Plus size={16} color="#111827" style={{ marginRight: 6 }} />
+                  <Text style={[typography.bodyMedium, styles.buttonText]}>
+                    Add Manual Transaction
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Help & Info */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
-              <HelpCircle size={16} color="#1D4ED8" />
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
+                <HelpCircle size={16} color="#1D4ED8" />
+              </View>
+              <Text style={typography.heading}>Help & Information</Text>
             </View>
-            <Text style={styles.cardTitle}>Help & Information</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push("/streaks-slush-explainer")}
-            style={[styles.settingItem, styles.rowBetween]}
-          >
-            <Text style={styles.settingTitle}>How streaks & slush work</Text>
-            <ChevronRight size={16} color="#6B7280" />
-          </Pressable>
-          <Separator />
-          <Pressable
-            onPress={() => router.push("/payday-explainer")}
-            style={[styles.settingItem, styles.rowBetween]}
-          >
-            <Text style={styles.settingTitle}>How payday math works</Text>
-            <ChevronRight size={16} color="#6B7280" />
-          </Pressable>
-          <Separator />
-          <Pressable
-            onPress={() => router.push("/end-of-period-celebration")}
-            style={[styles.settingItem, styles.rowBetween]}
-          >
-            <Text style={styles.settingTitle}>
-              Preview end-of-period celebration
-            </Text>
-            <ChevronRight size={16} color="#6B7280" />
-          </Pressable>
-        </View>
-        <View style={{ height: 24 }} />
+            <Pressable
+              onPress={() => router.push("/streaks-slush-explainer")}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <Text style={typography.body}>How streaks & slush work</Text>
+              <ChevronRight size={16} color="#6B7280" />
+            </Pressable>
+            <Separator style={{ marginVertical: spacing.sm }} />
+            <Pressable
+              onPress={() => router.push("/payday-explainer")}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <Text style={typography.body}>How payday math works</Text>
+              <ChevronRight size={16} color="#6B7280" />
+            </Pressable>
+            <Separator style={{ marginVertical: spacing.sm }} />
+            <Pressable
+              onPress={() => router.push("/end-of-period-celebration")}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <Text style={typography.body}>
+                Preview end-of-period celebration
+              </Text>
+              <ChevronRight size={16} color="#6B7280" />
+            </Pressable>
+          </CardContent>
+        </Card>
+        <View style={{ height: spacing.xl }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  backBtn: { padding: 8, borderRadius: 12 },
-  title: { fontSize: 18, fontWeight: "700", color: "#111827" },
-  subtle: { fontSize: 12, color: "#6B7280" },
-  scroll: { padding: 16 },
-  card: {
-    backgroundColor: "#fff",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    gap: 8,
+  backBtn: { padding: spacing.sm, borderRadius: borderRadius.lg },
+  title: typography.subtitle,
+  subtle: typography.caption,
+  scroll: { padding: spacing.lg },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  cardHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   circle: {
     width: 28,
     height: 28,
@@ -240,40 +255,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cardTitle: { fontWeight: "600", fontSize: 16 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   rowBetween: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: spacing.md,
   },
   rowCenter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
+    paddingVertical: spacing.md,
   },
   accountLogo: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: borderRadius.lg,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
-  itemTitle: { fontSize: 14, fontWeight: "500", color: "#111827" },
-  muted: { fontSize: 12, color: "#6B7280" },
-  settingItem: { paddingVertical: 10 },
-  settingTitle: { fontSize: 14 },
+  settingItem: { paddingVertical: spacing.md },
   buttonOutline: {
     borderWidth: 2,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    paddingVertical: 10,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
     alignItems: "center",
   },
   buttonText: { fontWeight: "600" },
-  switchText: { fontWeight: "600", color: "#111827" },
 });
