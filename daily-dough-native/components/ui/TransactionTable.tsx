@@ -52,10 +52,32 @@ export function TransactionTable({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
+    if (!dateString) return "No Date";
+
+    try {
+      // Handle both ISO dates and YYYY-MM-DD format safely
+      const dateStr = dateString.includes("T")
+        ? dateString
+        : dateString + "T12:00:00";
+      const date = new Date(dateStr);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date format in TransactionTable: ${dateString}`);
+        return "Invalid Date";
+      }
+
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    } catch (error) {
+      console.warn(
+        `Date parsing error in TransactionTable: ${dateString}`,
+        error
+      );
+      return "Invalid Date";
+    }
   };
 
   return (

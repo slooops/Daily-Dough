@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import {
   Building2,
   ChevronLeft,
@@ -9,7 +9,9 @@ import {
   Info,
   Plus,
   Receipt,
+  Loader2,
 } from "lucide-react-native";
+import { fetchUserAccounts } from "../services/plaidService";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
 import { Card, CardContent } from "../components/ui/Card";
@@ -20,25 +22,75 @@ import { typography, spacing, borderRadius, colors } from "../styles/common";
 export default function SettingsScreen() {
   const router = useRouter();
   const [manualInputEnabled, setManualInputEnabled] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
 
-  const accounts = [
-    {
-      id: 1,
-      name: "Chase Checking",
-      logo: "🏦",
-      provider: "Plaid",
-      lastSynced: new Date().toISOString(),
-      status: "syncing" as const,
-    },
-    {
-      id: 2,
-      name: "Wells Fargo Savings",
-      logo: "🏛️",
-      provider: "Teller",
-      lastSynced: new Date().toISOString(),
-      status: "idle" as const,
-    },
-  ];
+  // User ID for this demo - in a real app, this would come from authentication
+  const userId = "demo";
+
+  // Load accounts function
+  const loadAccounts = useCallback(async () => {
+    try {
+      setIsLoadingAccounts(true);
+      const userAccounts = await fetchUserAccounts(userId);
+
+      // Transform API accounts to UI format
+      const transformedAccounts = userAccounts.map((account: any) => ({
+        id: account.id,
+        name: account.name,
+        logo: getAccountLogo(account.type),
+        provider: "Plaid",
+        lastSynced: account.updated_at || new Date().toISOString(),
+        status: "idle" as const,
+        accountType: capitalizeFirst(account.subtype || account.type),
+        balance: account.balances?.current || 0,
+      }));
+
+      setAccounts(transformedAccounts);
+    } catch (error) {
+      console.error("Failed to fetch accounts in settings:", error);
+      // Keep empty array if no accounts
+      setAccounts([]);
+    } finally {
+      setIsLoadingAccounts(false);
+    }
+  }, []);
+
+  // Load accounts on mount
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
+
+  // Reload accounts when screen comes into focus (after navigation)
+  useFocusEffect(
+    useCallback(() => {
+      // Only reload if we have existing data (avoid double-loading on first mount)
+      if (accounts.length > 0) {
+        console.log("⚙️ Settings screen focused, reloading accounts...");
+        loadAccounts();
+      }
+    }, [loadAccounts, accounts.length])
+  );
+
+  // Helper functions
+  const getAccountLogo = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case "depository":
+        return "🏦";
+      case "credit":
+        return "💳";
+      case "loan":
+        return "🏠";
+      case "investment":
+        return "📈";
+      default:
+        return "🏦";
+    }
+  };
+
+  const capitalizeFirst = (str: string) => {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+  };
 
   return (
     <View style={styles.root}>
@@ -68,25 +120,60 @@ export default function SettingsScreen() {
               <Text style={typography.heading}>Accounts & Sync</Text>
             </View>
             <View>
-              {accounts.map((a, i) => (
-                <View key={a.id}>
-                  <View style={styles.rowBetween}>
-                    <View style={styles.row}>
-                      <View style={styles.accountLogo}>
-                        <Text style={{ fontSize: 16 }}>{a.logo}</Text>
-                      </View>
-                      <View>
-                        <Text style={typography.bodyMedium}>{a.name}</Text>
-                        <Text style={typography.caption}>{a.provider}</Text>
-                      </View>
-                    </View>
-                    <SyncStatus status={a.status} lastSynced={a.lastSynced} />
-                  </View>
-                  {i < accounts.length - 1 && (
-                    <Separator style={{ marginVertical: spacing.md }} />
-                  )}
+              {isLoadingAccounts ? (
+                <View
+                  style={{ paddingVertical: spacing.xl, alignItems: "center" }}
+                >
+                  <Loader2 size={24} color="#6B7280" />
+                  <Text style={[typography.caption, { marginTop: spacing.sm }]}>
+                    Loading accounts...
+                  </Text>
                 </View>
-              ))}
+              ) : accounts.length > 0 ? (
+                accounts.map((a, i) => (
+                  <View key={a.id}>
+                    <View style={styles.rowBetween}>
+                      <View style={styles.row}>
+                        <View style={styles.accountLogo}>
+                          <Text style={{ fontSize: 16 }}>{a.logo}</Text>
+                        </View>
+                        <View>
+                          <Text style={typography.bodyMedium}>{a.name}</Text>
+                          <View style={styles.row}>
+                            <Text style={typography.caption}>{a.provider}</Text>
+                            <Text
+                              style={[typography.caption, { marginLeft: 4 }]}
+                            >
+                              •
+                            </Text>
+                            <Text
+                              style={[
+                                typography.caption,
+                                { fontWeight: "600" },
+                              ]}
+                            >
+                              ${Math.abs(a.balance).toLocaleString()}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <SyncStatus status={a.status} lastSynced={a.lastSynced} />
+                    </View>
+                    {i < accounts.length - 1 && (
+                      <Separator style={{ marginVertical: spacing.md }} />
+                    )}
+                  </View>
+                ))
+              ) : (
+                <View
+                  style={{ paddingVertical: spacing.xl, alignItems: "center" }}
+                >
+                  <Text style={[typography.caption, { textAlign: "center" }]}>
+                    No accounts connected yet.{"\n"}
+                    Connect a bank account to get started.
+                  </Text>
+                </View>
+              )}
             </View>
             <Separator style={{ marginVertical: spacing.md }} />
 

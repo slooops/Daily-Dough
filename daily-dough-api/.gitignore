@@ -44,3 +44,9 @@ next-env.d.ts
 .env
 .env.*
 !.env.example
+
+# development and testing files
+/tests/
+/app/api/test-*
+/app/api/debug/
+/scripts/test-*.js

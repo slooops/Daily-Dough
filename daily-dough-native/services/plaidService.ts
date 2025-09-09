@@ -1,230 +1,338 @@
-// API service for connecting to your Daily Dough backend
-import { Platform } from 'react-native';
+/**
+ * Plaid Link Integration Service
+ *
+ * Phase E Tasks 12 & 13: Client integration
+ * - Fetches link tokens from our API
+ * - Handles Plaid Link success/exit
+ * - Exchanges public tokens for access tokens
+ */
 
-// Use different base URLs for different platforms
-const getApiBaseUrl = () => {
-  if (Platform.OS === 'web') {
-    // For web browsers, use localhost to avoid CORS issues
-    return 'http://localhost:3000';
-  } else {
-    // For mobile devices, use the network IP
-    return 'http://10.0.0.194:3000';
-  }
-};
+const API_BASE_URL = "http://localhost:3000/api";
 
-const API_BASE_URL = getApiBaseUrl();
-
-export interface Account {
-  id: string;
-  name: string;
-  type: string;
-  subtype: string;
-  balance: number;
-  mask: string;
-}
-
-export interface Transaction {
-  id: string;
-  date: string;
-  merchant: string;
-  amount: number;
-  rawAmount: number;
-  category: string;
-  subCategory: string | null;
-  accountId: string;
-  isOutflow: boolean;
-  description: string;
-}
-
-export interface TransactionResponse {
-  success: boolean;
-  message: string;
-  data: {
-    accounts: Account[];
-    transactions: Transaction[];
-    summary: {
-      totalTransactions: number;
-      totalSpent: number;
-      totalReceived: number;
-      netChange: number;
-      categoriesCount: number;
-    };
-    dateRange: {
-      start: string;
-      end: string;
-      daysRequested: number;
-    };
-  };
+// Plaid Link SDK types (will be imported from react-native-plaid-link-sdk)
+export interface LinkSuccess {
+  publicToken: string;
   metadata: {
-    timestamp: string;
-    note: string;
+    institution: {
+      name: string;
+      institution_id: string;
+    };
+    accounts: Array<{
+      id: string;
+      name: string;
+      type: string;
+      subtype: string;
+    }>;
   };
 }
 
-class PlaidService {
-  
-  /**
-   * Fetch development/sample transaction data (perfect for testing)
-   */
-  async getDevTransactions(): Promise<TransactionResponse> {
-    console.log('🧪 Fetching development transactions from:', `${API_BASE_URL}/api/plaid/dev-transactions`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/plaid/dev-transactions`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+export interface LinkExit {
+  error?: {
+    error_code: string;
+    error_message: string;
+    error_type: string;
+  };
+  metadata: any;
+}
 
-      console.log('📊 Dev transactions response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Dev transactions error response:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
+export interface PlaidLinkConfig {
+  userId: string;
+  onSuccess: (publicToken: string, metadata: any) => void;
+  onExit?: (error?: any, metadata?: any) => void;
+}
 
-      const data = await response.json();
-      console.log('✅ Dev transactions loaded:', data.data?.transactions?.length, 'transactions');
-      return data;
-    } catch (error) {
-      console.error('❌ Dev transactions fetch error:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Fetch real Plaid sandbox data (accounts + transactions)
-   * This uses actual Plaid sandbox accounts with realistic transaction data
-   */
-  async getRealSandboxData(): Promise<TransactionResponse> {
-    console.log('🏦 Fetching real Plaid sandbox data from:', `${API_BASE_URL}/api/plaid/sandbox-data`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/plaid/sandbox-data`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+export interface LinkTokenResponse {
+  success: boolean;
+  link_token?: string;
+  error?: string;
+}
 
-      console.log('📊 Sandbox data response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Sandbox data error response:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
+export interface ExchangeTokenResponse {
+  success: boolean;
+  item_id?: string;
+  institution_name?: string;
+  accounts?: any[];
+  error?: string;
+}
 
-      const data = await response.json();
-      console.log('✅ Sandbox data loaded:', data.data?.transactions?.length, 'transactions from', data.data?.accounts?.length, 'real Plaid accounts');
-      return data;
-    } catch (error) {
-      console.error('❌ Sandbox data fetch error:', error);
-      throw error;
+/**
+ * Fetch a link token from our API (Task 12)
+ */
+export async function fetchLinkToken(userId: string): Promise<string> {
+  try {
+    console.log("🔗 Fetching link token for user:", userId);
+    console.log("📡 API URL:", `${API_BASE_URL}/plaid/link-token`);
+
+    const response = await fetch(`${API_BASE_URL}/plaid/link-token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    console.log("📊 Response status:", response.status);
+    console.log(
+      "📊 Response headers:",
+      Object.fromEntries(response.headers.entries())
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ HTTP Error:", response.status, errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-  }
-  
-  /**
-   * Fetch real transaction data using an access token
-   */
-  async getRealTransactions(accessToken: string, days: number = 30): Promise<TransactionResponse> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/plaid/get-transactions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          access_token: accessToken,
-          days: days,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch real transactions');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error fetching real transactions:', error);
-      throw error;
+
+    const data: LinkTokenResponse = await response.json();
+    console.log("📊 Response data:", data);
+
+    if (!data.link_token) {
+      throw new Error(data.error || "No link token in response");
     }
-  }
-  
-  /**
-   * Create a link token for Plaid Link integration
-   */
-  async createLinkToken(userId?: string): Promise<{
-    success: boolean;
-    data: {
-      linkToken: string;
-      expiration: string;
-      requestId: string;
-    };
-  }> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/plaid/create-link-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userId || `user_${Date.now()}`,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create link token');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error creating link token:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Exchange a public token for an access token
-   */
-  async exchangeToken(publicToken: string, userId?: string): Promise<{
-    success: boolean;
-    data: {
-      accessToken: string;
-      itemId: string;
-      userId: string;
-    };
-  }> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/plaid/exchange-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          public_token: publicToken,
-          userId: userId,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to exchange token');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error exchanging token:', error);
-      throw error;
-    }
+
+    console.log(
+      "✅ Link token received:",
+      data.link_token?.substring(0, 20) + "..."
+    );
+    return data.link_token;
+  } catch (error) {
+    console.error("❌ Link token fetch failed:", error);
+    throw error;
   }
 }
 
-export const plaidService = new PlaidService();
+/**
+ * Exchange public token for access token (Task 13)
+ */
+export async function exchangePublicToken(
+  publicToken: string,
+  userId: string
+): Promise<ExchangeTokenResponse> {
+  try {
+    console.log("🔄 Exchanging public token for user:", userId);
+
+    const response = await fetch(`${API_BASE_URL}/plaid/exchange`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        publicToken,
+        userId,
+      }),
+    });
+
+    const data: ExchangeTokenResponse = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to exchange token");
+    }
+
+    console.log("✅ Token exchange successful:", data.institution_name);
+    return data;
+  } catch (error) {
+    console.error("❌ Token exchange failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Mock Plaid Link flow for development/testing
+ * In production, this would use react-native-plaid-link-sdk
+ */
+async function openPlaidLinkFlow(
+  linkToken: string,
+  callbacks: {
+    onSuccess: (success: LinkSuccess) => void;
+    onExit: (exit: LinkExit) => void;
+  }
+) {
+  console.log(
+    "🔗 Mock Plaid Link flow with token:",
+    linkToken.substring(0, 20) + "..."
+  );
+
+  // For development, simulate Plaid Link success by using sandbox quicklink
+  try {
+    console.log("📡 Calling sandbox quicklink...");
+    const response = await fetch(`${API_BASE_URL}/plaid/sandbox-quicklink`);
+    console.log("📊 Sandbox response status:", response.status);
+
+    const data = await response.json();
+    console.log("📊 Sandbox response data:", data);
+
+    if (data.success && data.item_id) {
+      // The sandbox-quicklink endpoint creates the connection directly
+      // Simulate successful Plaid Link flow with mock public token
+      const mockSuccess: LinkSuccess = {
+        publicToken: "mock-public-token-" + Date.now(), // Mock token for flow
+        metadata: {
+          institution: {
+            name: data.institution_name || "First Platypus Bank",
+            institution_id: data.institution_id || "ins_109508",
+          },
+          accounts: data.accounts?.slice(0, 3).map((acc: any, i: number) => ({
+            id: `mock_${i}`,
+            name: acc.name,
+            type: acc.type,
+            subtype: acc.subtype,
+          })) || [
+            {
+              id: "mock_account_1",
+              name: "Test Checking",
+              type: "depository",
+              subtype: "checking",
+            },
+          ],
+        },
+      };
+
+      console.log("✅ Mock Plaid Link success with sandbox data");
+      callbacks.onSuccess(mockSuccess);
+    } else {
+      throw new Error(`Sandbox failed: ${data.message || "Unknown error"}`);
+    }
+  } catch (error) {
+    console.error("❌ Sandbox link flow failed:", error);
+    const mockExit: LinkExit = {
+      error: {
+        error_code: "SANDBOX_ERROR",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        error_type: "API_ERROR",
+      },
+      metadata: {},
+    };
+
+    callbacks.onExit(mockExit);
+  }
+}
+
+/**
+ * Hook for Plaid Link integration (Tasks 12 & 13)
+ */
+export function usePlaidLink(config: PlaidLinkConfig) {
+  const { userId, onSuccess, onExit } = config;
+
+  const openPlaidLink = async () => {
+    try {
+      // Step 1: Fetch link token (Task 12)
+      const linkToken = await fetchLinkToken(userId);
+
+      // Step 2: Open Plaid Link (Task 12)
+      console.log("🚀 Opening Plaid Link...");
+
+      // For development, we'll use sandbox quick link for testing
+      // In production, this would use the actual react-native-plaid-link-sdk
+      await openPlaidLinkFlow(linkToken, {
+        onSuccess: async (success: LinkSuccess) => {
+          try {
+            console.log("🎉 Plaid Link success:", success);
+
+            // For sandbox/mock flow, the connection is already created
+            // In production, this would exchange the real public token
+            if (success.publicToken.startsWith("mock-")) {
+              console.log(
+                "✅ Sandbox connection already created, skipping exchange"
+              );
+              // Mock exchange result for consistent API
+              const mockExchangeResult = {
+                success: true,
+                institution_name: success.metadata.institution.name,
+                userId: userId,
+                itemId: "sandbox-item-" + Date.now(),
+                accounts: success.metadata.accounts,
+              };
+
+              onSuccess(success.publicToken, {
+                ...success,
+                exchangeResult: mockExchangeResult,
+              });
+            } else {
+              // Real Plaid Link flow - exchange the public token
+              const exchangeResult = await exchangePublicToken(
+                success.publicToken,
+                userId
+              );
+
+              console.log("✅ Full Link flow completed:", exchangeResult);
+              onSuccess(success.publicToken, {
+                ...success,
+                exchangeResult,
+              });
+            }
+          } catch (error) {
+            console.error("❌ Token exchange failed:", error);
+            onExit?.(error, success);
+          }
+        },
+        onExit: (exit: LinkExit) => {
+          console.log("👋 Plaid Link exit:", exit);
+          onExit?.(exit.error, exit);
+        },
+      });
+    } catch (error) {
+      console.error("❌ Plaid Link failed to open:", error);
+      onExit?.(error);
+    }
+  };
+
+  return {
+    openPlaidLink,
+  };
+}
+
+/**
+ * Fetch user accounts after successful linking
+ */
+export async function fetchUserAccounts(userId: string): Promise<any[]> {
+  try {
+    console.log("📊 Fetching accounts for user:", userId);
+
+    const response = await fetch(
+      `${API_BASE_URL}/plaid/accounts?userId=${userId}`
+    );
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to fetch accounts");
+    }
+
+    console.log("✅ Accounts fetched:", data.accounts?.length);
+    return data.accounts || [];
+  } catch (error) {
+    console.error("❌ Account fetch failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch user transactions after successful linking
+ */
+export async function fetchUserTransactions(
+  userId: string,
+  options: { limit?: number; since?: string } = {}
+): Promise<any[]> {
+  try {
+    console.log("💳 Fetching transactions for user:", userId);
+
+    const params = new URLSearchParams();
+    params.set("userId", userId);
+    if (options.limit) params.set("limit", options.limit.toString());
+    if (options.since) params.set("since", options.since);
+
+    const response = await fetch(
+      `${API_BASE_URL}/plaid/transactions?${params}`
+    );
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to fetch transactions");
+    }
+
+    console.log("✅ Transactions fetched:", data.transactions?.length);
+    return data.transactions || [];
+  } catch (error) {
+    console.error("❌ Transaction fetch failed:", error);
+    throw error;
+  }
+}

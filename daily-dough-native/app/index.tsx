@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Settings, BarChart3 } from "lucide-react-native";
+import { fetchUserTransactions } from "../services/plaidService";
 import { DailyDial } from "../components/DailyDial";
 import { SyncStatus } from "../components/SyncStatus.native";
 import { Progress } from "../components/ui/Progress";
@@ -18,6 +19,75 @@ import {
 import { useMorningOpen } from "../hooks/useMorningOpen";
 import { typography, spacing, borderRadius, colors } from "../styles/common";
 
+// Smart category inference for development (when Plaid sandbox returns "Other")
+const inferCategoryFromMerchant = (
+  merchant: string,
+  originalCategory: string
+): string => {
+  if (originalCategory && originalCategory !== "Other") {
+    return originalCategory; // Use real category if available
+  }
+
+  const merchantLower = merchant.toLowerCase();
+
+  // Transportation
+  if (
+    merchantLower.includes("uber") ||
+    merchantLower.includes("lyft") ||
+    merchantLower.includes("taxi") ||
+    merchantLower.includes("gas") ||
+    merchantLower.includes("shell") ||
+    merchantLower.includes("chevron")
+  ) {
+    return "Transportation";
+  }
+
+  // Travel
+  if (
+    merchantLower.includes("airline") ||
+    merchantLower.includes("hotel") ||
+    merchantLower.includes("airbnb") ||
+    merchantLower.includes("expedia")
+  ) {
+    return "Travel";
+  }
+
+  // Food
+  if (
+    merchantLower.includes("restaurant") ||
+    merchantLower.includes("coffee") ||
+    merchantLower.includes("starbucks") ||
+    merchantLower.includes("mcdonald") ||
+    merchantLower.includes("pizza") ||
+    merchantLower.includes("food")
+  ) {
+    return "Food";
+  }
+
+  // Shopping
+  if (
+    merchantLower.includes("amazon") ||
+    merchantLower.includes("target") ||
+    merchantLower.includes("walmart") ||
+    merchantLower.includes("store")
+  ) {
+    return "Shopping";
+  }
+
+  // Entertainment
+  if (
+    merchantLower.includes("netflix") ||
+    merchantLower.includes("spotify") ||
+    merchantLower.includes("movie") ||
+    merchantLower.includes("theater")
+  ) {
+    return "Entertainment";
+  }
+
+  // Default to Other
+  return "Other";
+};
+
 const sampleData = {
   period: { discretionary_total: 1400 },
   today: {
@@ -30,7 +100,7 @@ const sampleData = {
   transactions: [
     {
       id: 1,
-      date: "2025-08-18T09:20",
+      date: "2025-08-18T09:20:00.000Z",
       merchant: "Blue Bottle",
       amount: -5.0,
       tag: "spend",
@@ -38,15 +108,15 @@ const sampleData = {
     },
     {
       id: 2,
-      date: "2025-08-18T10:05",
-      merchant: "USAA → Chase Card",
+      date: "2025-08-18T10:05:00.000Z",
+      merchant: "USAA → Bilt Card",
       amount: -300.0,
       tag: "ignored",
       category: "Credit Card Payment",
     },
     {
       id: 3,
-      date: "2025-08-18T11:00",
+      date: "2025-08-18T11:00:00.000",
       merchant: "Rent",
       amount: -1200.0,
       tag: "bill",
@@ -59,14 +129,95 @@ export default function Home() {
   const router = useRouter();
   const { showMorningAnimation, onAnimationComplete } = useMorningOpen();
 
+  // State for real transaction data
+  const [realTransactions, setRealTransactions] = useState<Transaction[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"syncing" | "idle">("idle");
+
+  // User ID for this demo - in a real app, this would come from authentication
+  const userId = "demo";
+
+  // Load real transactions function
+  const loadTransactions = useCallback(async () => {
+    try {
+      setIsLoadingTransactions(true);
+      setSyncStatus("syncing");
+
+      // Get transactions from the last 2 months for faster development
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
+      const userTransactions = await fetchUserTransactions(userId, {
+        limit: 20, // Reasonable limit for development
+        since: twoMonthsAgo.toISOString().split("T")[0], // Last 2 months
+      });
+
+      // Transform API transactions to UI format
+      const transformedTransactions: Transaction[] = userTransactions.map(
+        (tx: any, index: number) => {
+          const inferredCategory = inferCategoryFromMerchant(
+            tx.merchant || "Unknown",
+            tx.category
+          );
+
+          // Debug category inference
+          if (index < 3) {
+            console.log(
+              `🎯 Category inference for "${tx.merchant}": ${tx.category} → ${inferredCategory}`
+            );
+          }
+
+          return {
+            id: tx.id,
+            date: tx.date || new Date().toISOString(),
+            merchant: tx.merchant || "Unknown",
+            amount: tx.amount || 0,
+            tag: tx.tag || ("spend" as const),
+            category: inferredCategory,
+          };
+        }
+      );
+
+      setRealTransactions(transformedTransactions);
+      console.log(
+        `📊 Loaded ${transformedTransactions.length} real transactions`
+      );
+    } catch (error) {
+      console.error("Failed to fetch transactions:", error);
+      // Fall back to sample data if API fails
+      setRealTransactions(sampleData.transactions);
+    } finally {
+      setIsLoadingTransactions(false);
+      setSyncStatus("idle");
+    }
+  }, []);
+
+  // Load transactions on mount
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  // Reload transactions when screen comes into focus (after navigation)
+  useFocusEffect(
+    useCallback(() => {
+      // Only reload if we have existing data (avoid double-loading on first mount)
+      if (realTransactions.length > 0) {
+        console.log("📱 Home screen focused, reloading transactions...");
+        loadTransactions();
+      }
+    }, [loadTransactions, realTransactions.length])
+  ); // Use real transactions or fallback to sample data
+  const transactions =
+    realTransactions.length > 0 ? realTransactions : sampleData.transactions;
+
   const todaySpent = useMemo(
     () =>
-      sampleData.transactions
+      transactions
         .filter(
           (t) => t.date.startsWith(sampleData.today.date) && t.tag === "spend"
         )
         .reduce((sum, t) => sum + Math.abs(t.amount), 0),
-    []
+    [transactions]
   );
   const spendableToday =
     sampleData.today.daily_allowance -
@@ -80,13 +231,10 @@ export default function Home() {
     100;
 
   // Transform transaction data for TransactionTable component
-  const transactionTableData = sampleData.transactions.map((t) => ({
+  const transactionTableData = transactions.map((t) => ({
     id: t.id.toString(),
     merchant: t.merchant,
-    date: new Date(t.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
+    date: t.date, // Pass raw date, let TransactionTable format it
     amount: Math.abs(t.amount),
     tag: t.tag,
     amountColor: t.amount < 0 ? "#DC2626" : "#059669",
@@ -99,7 +247,10 @@ export default function Home() {
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.sectionHeader, { paddingVertical: spacing.lg }]}>
           <Text style={typography.title}>Daily Dough</Text>
-          <SyncStatus status="idle" lastSynced={new Date().toISOString()} />
+          <SyncStatus
+            status={syncStatus}
+            lastSynced={new Date().toISOString()}
+          />
         </View>
         <View style={styles.sectionCenter}>
           <DailyDial
@@ -128,7 +279,7 @@ export default function Home() {
               >
                 <SlushPill amount={sampleData.slush.current} />
                 <SyncStatus
-                  status="idle"
+                  status={syncStatus}
                   lastSynced={new Date().toISOString()}
                   compact
                 />
@@ -173,7 +324,11 @@ export default function Home() {
         </View>
 
         <TransactionTable
-          title="Recent Transactions"
+          title={
+            realTransactions.length > 0
+              ? "Recent Transactions"
+              : "Recent Transactions (Demo Data)"
+          }
           data={transactionTableData}
           style={{ marginHorizontal: spacing.xl, marginBottom: spacing.xl }}
         />

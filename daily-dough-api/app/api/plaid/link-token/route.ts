@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { plaid } from "@/lib/plaid";
 import { Products, CountryCode } from "plaid";
 
+/**
+ * POST /api/plaid/link-token
+ * Creates a Plaid Link token for connecting bank accounts
+ */
 export async function POST(request: Request) {
   try {
     // Parse request body for optional user ID (default to 'me' for MVP)
@@ -36,13 +40,16 @@ export async function POST(request: Request) {
     };
 
     console.log("📡 Link token request:", {
-      ...linkTokenRequest,
+      user: linkTokenRequest.user,
+      products: linkTokenRequest.products,
+      country_codes: linkTokenRequest.country_codes,
       webhook: webhookUrl,
     });
 
     const resp = await plaid.linkTokenCreate(linkTokenRequest);
 
     console.log("✅ Link token created successfully");
+    console.log("📅 Token expires at:", resp.data.expiration);
 
     return NextResponse.json({
       link_token: resp.data.link_token,

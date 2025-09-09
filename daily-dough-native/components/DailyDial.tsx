@@ -86,8 +86,22 @@ export function DailyDial({
     variant === "morning-animate" ? animatedAmount : remaining;
   const dashOffset = CIRC * (1 - (isOver ? 1 : percentage));
 
+  // Generate stable random positions for confetti pieces
+  const confettiPositions = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) => ({
+        left: 50 + Math.sin(index * 0.5) * 40,
+        top: 50 + Math.cos(index * 0.7) * 40,
+        translateX: Math.sin(index * 0.8) * 120,
+        translateY: Math.cos(index * 0.6) * 120,
+      })),
+    []
+  );
+
   // Web-compatible confetti component
-  const ConfettiPiece = ({ index }: { index: number }) => {
+  const ConfettiPiece = React.memo(({ index }: { index: number }) => {
+    const position = confettiPositions[index];
+
     if (Platform.OS === "web") {
       // Simple web animation using regular View
       return (
@@ -95,14 +109,14 @@ export function DailyDial({
           style={[
             styles.confetti,
             {
-              left: `${50 + (Math.random() - 0.5) * 40}%`,
-              top: `${50 + (Math.random() - 0.5) * 40}%`,
+              left: `${position.left}%`,
+              top: `${position.top}%`,
               backgroundColor: colors.dial,
               opacity: showConfetti ? 1 : 0,
               transform: [
                 { scale: showConfetti ? 1.1 : 0 },
-                { translateX: showConfetti ? (Math.random() - 0.5) * 120 : 0 },
-                { translateY: showConfetti ? (Math.random() - 0.5) * 120 : 0 },
+                { translateX: showConfetti ? position.translateX : 0 },
+                { translateY: showConfetti ? position.translateY : 0 },
               ],
             },
           ]}
@@ -118,21 +132,21 @@ export function DailyDial({
         animate={{
           opacity: 1,
           scale: 1.1,
-          translateX: (Math.random() - 0.5) * 120,
-          translateY: (Math.random() - 0.5) * 120,
+          translateX: position.translateX,
+          translateY: position.translateY,
         }}
         transition={{ type: "timing", duration: 800, delay: index * 50 }}
         style={[
           styles.confetti,
           {
-            left: `${50 + (Math.random() - 0.5) * 40}%`,
-            top: `${50 + (Math.random() - 0.5) * 40}%`,
+            left: `${position.left}%`,
+            top: `${position.top}%`,
             backgroundColor: colors.dial,
           },
         ]}
       />
     );
-  };
+  });
 
   return (
     <View style={styles.center}>

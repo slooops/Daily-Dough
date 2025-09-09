@@ -1,5 +1,12 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Alert,
+} from "react-native";
 import { useRouter } from "expo-router";
 import {
   Building2,
@@ -14,6 +21,11 @@ import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
 import { SyncStatus } from "../components/SyncStatus.native";
+import {
+  usePlaidLink,
+  fetchUserAccounts,
+  ExchangeTokenResponse,
+} from "../services/plaidService";
 
 export default function ConnectAccountsScreen() {
   const router = useRouter();
@@ -21,35 +33,128 @@ export default function ConnectAccountsScreen() {
     "plaid"
   );
   const [isConnecting, setIsConnecting] = useState(false);
-  const [accounts, setAccounts] = useState([
-    {
-      id: 1,
-      name: "Chase Checking",
-      logo: "🏦",
-      provider: "Plaid",
-      lastSynced: new Date().toISOString(),
-      status: "idle" as const,
-      accountType: "Checking",
-      balance: 2847.32,
+  const [isLoading, setIsLoading] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<string>("");
+
+  // User ID for this demo - in a real app, this would come from authentication
+  const userId = "demo";
+
+  // Initialize Plaid Link (Phase E Tasks 12 & 13)
+  const { openPlaidLink } = usePlaidLink({
+    userId,
+    onSuccess: async (publicToken: string, metadata: any) => {
+      console.log("🎉 Plaid Link successful!", metadata);
+      setConnectionStatus("✅ Bank connected successfully!");
+      setIsConnecting(false);
+
+      // Refresh accounts after successful connection (Task 14)
+      await refreshAccounts();
+
+      // Alert.alert(
+      //   "Success!",
+      //   `Connected to ${
+      //     metadata.exchangeResult?.institution_name || "your bank"
+      //   } successfully.`,
+      //   [{ text: "OK" }]
+      // );
     },
-    {
-      id: 2,
-      name: "Wells Fargo Savings",
-      logo: "🏛️",
-      provider: "Plaid",
-      lastSynced: new Date().toISOString(),
-      status: "idle" as const,
-      accountType: "Savings",
-      balance: 12459.68,
+    onExit: (error?: any, metadata?: any) => {
+      console.log("👋 Plaid Link exit:", { error, metadata });
+      setIsConnecting(false);
+
+      if (error) {
+        setConnectionStatus("❌ Connection failed");
+        Alert.alert(
+          "Connection Failed",
+          error.error_message ||
+            "Unable to connect to your bank. Please try again.",
+          [{ text: "OK" }]
+        );
+      } else {
+        setConnectionStatus("Connection cancelled by user");
+      }
     },
-  ]);
+  });
+
+  // Load existing accounts and transactions on component mount (Task 14)
+  useEffect(() => {
+    // Only fetch if we might have existing connections
+    // Don't fetch on initial load to avoid errors
+    loadExistingData();
+  }, []);
+
+  const loadExistingData = async () => {
+    // Try to load existing accounts silently, don't show errors
+    try {
+      await refreshAccounts();
+    } catch (error) {
+      // Silently fail - user hasn't connected anything yet
+      console.log("No existing connections found, user needs to connect first");
+    }
+  };
+
+  // Refresh accounts from API
+  const refreshAccounts = async () => {
+    try {
+      setIsLoading(true);
+      const userAccounts = await fetchUserAccounts(userId);
+
+      // Transform API accounts to UI format
+      const transformedAccounts = userAccounts.map((account: any) => ({
+        id: account.id,
+        name: account.name,
+        logo: getAccountLogo(account.type),
+        provider: "Plaid",
+        lastSynced: account.updated_at || new Date().toISOString(),
+        status: "idle" as const,
+        accountType: capitalizeFirst(account.subtype || account.type),
+        balance: account.balances?.current || 0,
+      }));
+
+      setAccounts(transformedAccounts);
+      setConnectionStatus(
+        transformedAccounts.length > 0
+          ? `${transformedAccounts.length} account${
+              transformedAccounts.length !== 1 ? "s" : ""
+            } connected`
+          : "No accounts connected"
+      );
+    } catch (error) {
+      console.error("Failed to fetch accounts:", error);
+      setConnectionStatus("No accounts connected");
+      setAccounts([]); // Clear any stale data
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper functions
+  const getAccountLogo = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case "depository":
+        return "🏦";
+      case "credit":
+        return "💳";
+      case "loan":
+        return "🏠";
+      case "investment":
+        return "📈";
+      default:
+        return "🏦";
+    }
+  };
+
+  const capitalizeFirst = (str: string) => {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+  };
 
   const providers = [
     {
       id: "plaid" as const,
       name: "Plaid",
       logo: "🔗",
-      description: "Most banks supported",
+      description: "Most banks supported (Live)",
       isDefault: true,
     },
     {
@@ -61,23 +166,35 @@ export default function ConnectAccountsScreen() {
     },
   ];
 
-  const handleConnect = () => {
-    setIsConnecting(true);
-    setTimeout(() => {
-      setAccounts((prev) =>
-        prev.concat({
-          id: Date.now(),
-          name: "TD Bank Checking",
-          logo: "🏢",
-          provider: selectedProvider === "plaid" ? "Plaid" : "Teller",
-          lastSynced: new Date().toISOString(),
-          status: "idle" as const,
-          accountType: "Checking",
-          balance: 1523.45,
-        })
-      );
+  // Handle bank connection (Phase E Tasks 12 & 13)
+  const handleConnect = async () => {
+    if (selectedProvider === "teller") {
+      Alert.alert("Coming Soon", "Teller integration is not yet available.", [
+        { text: "OK" },
+      ]);
+      return;
+    }
+
+    try {
+      setIsConnecting(true);
+      setConnectionStatus("🔄 Opening Plaid Link...");
+
+      // This will:
+      // 1. Fetch link token from API (Task 12)
+      // 2. Open Plaid Link UI (Task 12)
+      // 3. Exchange public token on success (Task 13)
+      await openPlaidLink();
+    } catch (error) {
+      console.error("Connection failed:", error);
+      setConnectionStatus("❌ Connection failed");
       setIsConnecting(false);
-    }, 1500);
+
+      Alert.alert(
+        "Connection Error",
+        "Unable to start bank connection. Please check your internet connection and try again.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   return (
@@ -85,7 +202,13 @@ export default function ConnectAccountsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.push("/settings");
+            }
+          }}
           style={styles.backBtn}
           hitSlop={8}
         >
@@ -173,11 +296,27 @@ export default function ConnectAccountsScreen() {
           </CardContent>
         </Card>
 
+        {/* Connection status */}
+        {connectionStatus && (
+          <Card style={{ marginBottom: 16, backgroundColor: "#F8FAFC" }}>
+            <CardContent style={{ paddingVertical: 12 }}>
+              <Text
+                style={[styles.muted, { textAlign: "center", fontSize: 13 }]}
+              >
+                {connectionStatus}
+              </Text>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Connect button */}
         <Pressable
           onPress={handleConnect}
-          disabled={isConnecting}
-          style={[styles.buttonPrimary, isConnecting && { opacity: 0.7 }]}
+          disabled={isConnecting || selectedProvider === "teller"}
+          style={[
+            styles.buttonPrimary,
+            (isConnecting || selectedProvider === "teller") && { opacity: 0.7 },
+          ]}
         >
           {isConnecting ? (
             <Loader2 size={16} color="#fff" />
@@ -186,49 +325,75 @@ export default function ConnectAccountsScreen() {
           )}
           <Text style={[styles.buttonPrimaryText, { marginLeft: 6 }]}>
             {isConnecting
-              ? `Connecting ${selectedProvider}...`
+              ? `Connecting via ${selectedProvider}...`
+              : selectedProvider === "teller"
+              ? "Coming Soon"
               : `Connect with ${selectedProvider}`}
           </Text>
         </Pressable>
 
         {/* Connected accounts */}
-        {accounts.length > 0 && (
+        {(accounts.length > 0 || isLoading) && (
           <Card style={{ marginBottom: 16 }}>
             <CardContent>
               <View style={[styles.row, { marginBottom: 16 }]}>
                 <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
-                  <Check size={16} color="#16A34A" />
+                  {isLoading ? (
+                    <Loader2 size={16} color="#16A34A" />
+                  ) : (
+                    <Check size={16} color="#16A34A" />
+                  )}
                 </View>
-                <Text style={styles.cardTitle}>Connected Accounts</Text>
-                <Badge variant="secondary" style={{ marginLeft: 6 }}>
-                  {String(accounts.length)}
-                </Badge>
+                <Text style={styles.cardTitle}>
+                  {isLoading ? "Loading Accounts..." : "Connected Accounts"}
+                </Text>
+                {accounts.length > 0 && (
+                  <Badge variant="secondary" style={{ marginLeft: 6 }}>
+                    {String(accounts.length)}
+                  </Badge>
+                )}
               </View>
-              {accounts.map((a, i) => (
-                <View key={a.id}>
-                  <View style={styles.rowBetween}>
-                    <View style={styles.row}>
-                      <View style={styles.accountLogo}>
-                        <Text style={{ fontSize: 16 }}>{a.logo}</Text>
-                      </View>
-                      <View>
-                        <Text style={styles.itemTitle}>{a.name}</Text>
-                        <View style={styles.row}>
-                          <Text style={styles.muted}>{a.accountType}</Text>
-                          <Text style={[styles.muted, { marginLeft: 6 }]}>
-                            •
-                          </Text>
-                          <Text style={[styles.muted, { fontWeight: "600" }]}>
-                            ${Math.abs(a.balance).toLocaleString()}
-                          </Text>
+              {isLoading ? (
+                <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                  <Loader2 size={24} color="#6B7280" />
+                  <Text style={[styles.muted, { marginTop: 8 }]}>
+                    Loading your accounts...
+                  </Text>
+                </View>
+              ) : accounts.length > 0 ? (
+                accounts.map((a, i) => (
+                  <View key={a.id}>
+                    <View style={styles.rowBetween}>
+                      <View style={styles.row}>
+                        <View style={styles.accountLogo}>
+                          <Text style={{ fontSize: 16 }}>{a.logo}</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.itemTitle}>{a.name}</Text>
+                          <View style={styles.row}>
+                            <Text style={styles.muted}>{a.accountType}</Text>
+                            <Text style={[styles.muted, { marginLeft: 6 }]}>
+                              •
+                            </Text>
+                            <Text style={[styles.muted, { fontWeight: "600" }]}>
+                              ${Math.abs(a.balance).toLocaleString()}
+                            </Text>
+                          </View>
                         </View>
                       </View>
+                      <SyncStatus status={a.status} lastSynced={a.lastSynced} />
                     </View>
-                    <SyncStatus status={a.status} lastSynced={a.lastSynced} />
+                    {i < accounts.length - 1 && <Separator />}
                   </View>
-                  {i < accounts.length - 1 && <Separator />}
+                ))
+              ) : (
+                <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                  <Text style={[styles.muted, { textAlign: "center" }]}>
+                    No accounts connected yet.{"\n"}
+                    Connect a bank account to get started.
+                  </Text>
                 </View>
-              ))}
+              )}
             </CardContent>
           </Card>
         )}
@@ -251,7 +416,13 @@ export default function ConnectAccountsScreen() {
 
         {/* Continue */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.push("/settings");
+            }
+          }}
           style={[styles.buttonSecondary, { marginBottom: 24 }]}
         >
           <Eye size={16} color="#111827" />

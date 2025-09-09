@@ -60,7 +60,7 @@ export default function EndOfPeriodCelebrationScreen() {
 
         <Card
           variant="elevated"
-          style={{ marginTop: spacing.lg, alignItems: "center" }}
+          style={{ marginVertical: spacing.lg, alignItems: "center" }}
         >
           <CardContent style={{ alignItems: "center" }}>
             <Text style={[typography.bodyMedium, { marginBottom: spacing.sm }]}>
