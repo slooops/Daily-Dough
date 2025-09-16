@@ -190,9 +190,12 @@ This is currently a personal project, but feel free to:
 
 ---
 
-## 📄 License
+## 📄 License and Copyright
 
-MIT License - feel free to fork and make it your own!
+Idk enough about licensing and legal to decide if this is fully open or closed source
+or should be GNU General Public License v3.0 or MIT. For now, the below applies.
+
+**Copyright © 2025 Jacob Sloop. All Rights Reserved.**
 
 ---
 

@@ -6,13 +6,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:reset": "tsx scripts/reset-db.ts",
+    "db:cleanup": "tsx scripts/cleanup-db.ts",
+    "db:seed": "tsx scripts/seed-demo.ts",
+    "db:vacuum": "tsx scripts/vacuum-sqlite.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:status": "prisma db pull && echo 'Database status check complete'"
   },
   "dependencies": {
+    "@prisma/client": "^6.16.1",
     "@vercel/postgres": "^0.10.0",
     "dotenv": "^17.2.1",
     "next": "15.5.0",
     "plaid": "^38.0.0",
+    "prisma": "^6.16.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
@@ -25,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
     "tailwindcss": "^4",
+    "tsx": "^4.20.5",
     "typescript": "^5"
   }
 }

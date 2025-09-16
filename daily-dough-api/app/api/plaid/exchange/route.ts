@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { plaid } from "@/lib/plaid";
-import { saveItem } from "@/lib/repository";
 import { encrypt } from "@/lib/crypto";
+import { itemsRepo, accountsRepo } from "@/server/repo";
 import { CountryCode } from "plaid";
 
 /**
@@ -58,20 +58,34 @@ export async function POST(request: Request) {
     // Encrypt access token before storage
     const encryptedAccessToken = encrypt(access_token);
 
-    // Store item for the provided userId
-    const savedItem = await saveItem({
+    // Store item using repository
+    const savedItem = await itemsRepo.upsertItem({
       userId,
-      accessToken: encryptedAccessToken,
-      institutionId: itemResponse.data.item.institution_id || "unknown",
-      institutionName,
+      item_id,
+      access_token_enc: encryptedAccessToken,
+      institution_id: itemResponse.data.item.institution_id || "unknown",
     });
 
     console.log(`💾 Stored item for user ${userId}: ${savedItem.id}`);
 
-    // Get account details for return
+    // Get and store account details
     const accountsResponse = await plaid.accountsGet({
       access_token,
     });
+
+    const accountsToStore = accountsResponse.data.accounts.map((acc) => ({
+      account_id: acc.account_id,
+      item_id: item_id,
+      name: acc.name,
+      type: acc.type,
+      subtype: acc.subtype || "",
+      mask: acc.mask || "",
+      balances: acc.balances,
+      raw: acc,
+    }));
+
+    // Store accounts
+    await accountsRepo.upsertMany(item_id, accountsToStore);
 
     const accounts = accountsResponse.data.accounts.map((acc) => ({
       id: acc.account_id,
@@ -86,7 +100,7 @@ export async function POST(request: Request) {
       success: true,
       userId,
       itemId: savedItem.id,
-      item_id: savedItem.id, // Backward compatibility
+      item_id: savedItem.item_id, // Use actual Plaid item_id
       institution_name: institutionName,
       accounts,
       message: "Token exchange successful",

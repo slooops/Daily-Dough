@@ -42,10 +42,10 @@ export interface Transaction {
 export interface SyncState {
   userId: string;
   itemId: string;
-  cursor?: string; // For incremental sync
+  cursor?: string | null; // For incremental sync, null when waiting for initial data
   lastSyncAt: Date;
   transactionCount: number;
-  status: "idle" | "syncing" | "error";
+  status: "idle" | "syncing" | "error" | "initializing";
   error?: string;
 }
 
@@ -73,4 +73,5 @@ export interface GetTransactionsResponse {
   total: number;
   cached: boolean;
   lastSyncAt?: string;
+  status?: "initializing" | "ready";
 }

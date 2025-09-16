@@ -7,6 +7,8 @@
  * - Exchanges public tokens for access tokens
  */
 
+import { logger } from "../utils/logger";
+
 const API_BASE_URL = "http://localhost:3000/api";
 
 // Plaid Link SDK types (will be imported from react-native-plaid-link-sdk)
@@ -311,9 +313,9 @@ export async function fetchUserAccounts(userId: string): Promise<any[]> {
 export async function fetchUserTransactions(
   userId: string,
   options: { limit?: number; since?: string } = {}
-): Promise<any[]> {
+): Promise<{ transactions: any[]; status?: string }> {
   try {
-    console.log("💳 Fetching transactions for user:", userId);
+    logger.api("GET", `/plaid/transactions`, undefined, { userId, options });
 
     const params = new URLSearchParams();
     params.set("userId", userId);
@@ -329,10 +331,56 @@ export async function fetchUserTransactions(
       throw new Error(data.error || "Failed to fetch transactions");
     }
 
-    console.log("✅ Transactions fetched:", data.transactions?.length);
-    return data.transactions || [];
+    console.log(
+      "✅ Transactions fetched:",
+      data.transactions?.length,
+      "Status:",
+      data.status
+    );
+    return {
+      transactions: data.transactions || [],
+      status: data.status,
+    };
   } catch (error) {
     console.error("❌ Transaction fetch failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Manual refresh transactions (Phase F)
+ */
+export async function refreshTransactions(
+  userId: string
+): Promise<{ synced: boolean; newCount: number }> {
+  try {
+    console.log("🔄 Manual refresh for user:", userId);
+
+    const response = await fetch(`${API_BASE_URL}/plaid/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to refresh transactions");
+    }
+
+    console.log(
+      "✅ Manual refresh completed:",
+      data.newCount,
+      "new transactions"
+    );
+    return {
+      synced: data.synced,
+      newCount: data.newCount,
+    };
+  } catch (error) {
+    console.error("❌ Manual refresh failed:", error);
     throw error;
   }
 }

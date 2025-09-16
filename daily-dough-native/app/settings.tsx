@@ -15,6 +15,7 @@ import { fetchUserAccounts } from "../services/plaidService";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
 import { Card, CardContent } from "../components/ui/Card";
+import { TransactionTable } from "../components/ui/TransactionTable";
 import { SyncStatus } from "../components/SyncStatus.native";
 import { SlushPill } from "../components/SlushPill";
 import { typography, spacing, borderRadius, colors } from "../styles/common";
@@ -92,6 +93,20 @@ export default function SettingsScreen() {
     return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
   };
 
+  // Transform accounts for TransactionTable component
+  const accountTableData = accounts.map((account) => ({
+    id: account.id,
+    merchant: account.name,
+    date: account.lastSynced, // Not used for account tables
+    emoji: account.logo,
+    provider: account.provider,
+    balance: account.balance,
+    syncStatus: {
+      status: account.status,
+      lastSynced: account.lastSynced,
+    },
+  }));
+
   return (
     <View style={styles.root}>
       {/* Header */}
@@ -111,72 +126,16 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Accounts & Sync */}
+        <TransactionTable
+          title="Accounts & Sync"
+          headerIcon={<Building2 size={16} color="#fff" />}
+          data={accountTableData}
+          style={{ marginBottom: spacing.xl }}
+        />
+
+        {/* Connect New Account Button */}
         <Card style={{ marginBottom: spacing.xl }}>
           <CardContent>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.circle, { backgroundColor: "#2563EB" }]}>
-                <Building2 size={16} color="#fff" />
-              </View>
-              <Text style={typography.heading}>Accounts & Sync</Text>
-            </View>
-            <View>
-              {isLoadingAccounts ? (
-                <View
-                  style={{ paddingVertical: spacing.xl, alignItems: "center" }}
-                >
-                  <Loader2 size={24} color="#6B7280" />
-                  <Text style={[typography.caption, { marginTop: spacing.sm }]}>
-                    Loading accounts...
-                  </Text>
-                </View>
-              ) : accounts.length > 0 ? (
-                accounts.map((a, i) => (
-                  <View key={a.id}>
-                    <View style={styles.rowBetween}>
-                      <View style={styles.row}>
-                        <View style={styles.accountLogo}>
-                          <Text style={{ fontSize: 16 }}>{a.logo}</Text>
-                        </View>
-                        <View>
-                          <Text style={typography.bodyMedium}>{a.name}</Text>
-                          <View style={styles.row}>
-                            <Text style={typography.caption}>{a.provider}</Text>
-                            <Text
-                              style={[typography.caption, { marginLeft: 4 }]}
-                            >
-                              •
-                            </Text>
-                            <Text
-                              style={[
-                                typography.caption,
-                                { fontWeight: "600" },
-                              ]}
-                            >
-                              ${Math.abs(a.balance).toLocaleString()}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <SyncStatus status={a.status} lastSynced={a.lastSynced} />
-                    </View>
-                    {i < accounts.length - 1 && (
-                      <Separator style={{ marginVertical: spacing.md }} />
-                    )}
-                  </View>
-                ))
-              ) : (
-                <View
-                  style={{ paddingVertical: spacing.xl, alignItems: "center" }}
-                >
-                  <Text style={[typography.caption, { textAlign: "center" }]}>
-                    No accounts connected yet.{"\n"}
-                    Connect a bank account to get started.
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Separator style={{ marginVertical: spacing.md }} />
-
             <Pressable
               onPress={() => router.push("/connect-accounts")}
               style={[styles.buttonOutline, styles.rowCenter]}

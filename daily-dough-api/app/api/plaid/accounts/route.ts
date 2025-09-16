@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { plaid } from "@/lib/plaid";
-import { getItemByUser, saveAccounts, getAccounts } from "@/lib/repository";
+import { itemsRepo, accountsRepo } from "@/server/repo";
 import { decrypt } from "@/lib/crypto";
-import type { Account } from "@/lib/types";
 
 /**
  * GET /api/plaid/accounts
@@ -17,7 +16,7 @@ export async function GET(request: Request) {
     console.log(`🏦 Fetching accounts for user: ${userId}`);
 
     // Get stored item for user
-    const item = await getItemByUser(userId);
+    const item = await itemsRepo.getByUser(userId);
     if (!item) {
       return NextResponse.json(
         { error: "No connected accounts found for user", userId },
@@ -25,11 +24,13 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log(`📋 Found item: ${item.id} (${item.institutionName})`);
+    console.log(
+      `📋 Found item: ${item.id} (institution: ${item.institution_id})`
+    );
 
     // Check if we have cached accounts (unless forcing refresh)
     if (!forceRefresh) {
-      const cachedAccounts = await getAccounts(item.id);
+      const cachedAccounts = await accountsRepo.listByItem(item.item_id);
       if (cachedAccounts.length > 0) {
         console.log(`💾 Returning ${cachedAccounts.length} cached accounts`);
 
@@ -37,14 +38,14 @@ export async function GET(request: Request) {
           success: true,
           accounts: cachedAccounts.map(mapAccountToResponse),
           cached: true,
-          item_id: item.id,
-          institution_name: item.institutionName,
+          item_id: item.item_id,
+          institution_id: item.institution_id,
         });
       }
     }
 
     // Decrypt access token
-    const accessToken = decrypt(item.accessToken);
+    const accessToken = decrypt(item.access_token_enc);
 
     // Fetch fresh accounts from Plaid
     console.log("📡 Fetching fresh accounts from Plaid...");
@@ -55,21 +56,23 @@ export async function GET(request: Request) {
     const plaidAccounts = accountsResponse.data.accounts;
     console.log(`📊 Retrieved ${plaidAccounts.length} accounts from Plaid`);
 
-    // Map Plaid accounts to our app format
-    const mappedAccounts = plaidAccounts.map(
-      (plaidAccount): Omit<Account, "id" | "createdAt" | "updatedAt"> => ({
-        itemId: item.id,
-        plaidAccountId: plaidAccount.account_id,
-        name: plaidAccount.name,
-        type: mapPlaidAccountType(plaidAccount.type),
-        subtype: plaidAccount.subtype || "other",
-        balance: plaidAccount.balances.current || 0,
-        isoCurrencyCode: plaidAccount.balances.iso_currency_code || "USD",
-      })
-    );
+    // Map Plaid accounts to database format
+    const accountsToStore = plaidAccounts.map((plaidAccount) => ({
+      account_id: plaidAccount.account_id,
+      item_id: item.item_id,
+      name: plaidAccount.name,
+      type: plaidAccount.type,
+      subtype: plaidAccount.subtype || "",
+      mask: plaidAccount.mask || "",
+      balances: plaidAccount.balances,
+      raw: plaidAccount,
+    }));
 
-    // Save accounts to repository
-    const savedAccounts = await saveAccounts(mappedAccounts);
+    // Save/update accounts in repository
+    const savedAccounts = await accountsRepo.upsertMany(
+      item.item_id,
+      accountsToStore
+    );
     console.log(`💾 Saved ${savedAccounts.length} accounts to repository`);
 
     // Return clean account data
@@ -77,8 +80,8 @@ export async function GET(request: Request) {
       success: true,
       accounts: savedAccounts.map(mapAccountToResponse),
       cached: false,
-      item_id: item.id,
-      institution_name: item.institutionName,
+      item_id: item.item_id,
+      institution_id: item.institution_id,
       fetched_at: new Date().toISOString(),
     });
   } catch (error: any) {
@@ -99,40 +102,25 @@ export async function GET(request: Request) {
 }
 
 /**
- * Map Plaid account type to our standardized types
+ * Map database Account to clean API response format
  */
-function mapPlaidAccountType(
-  plaidType: string
-): "depository" | "credit" | "loan" | "investment" | "other" {
-  switch (plaidType.toLowerCase()) {
-    case "depository":
-      return "depository";
-    case "credit":
-      return "credit";
-    case "loan":
-      return "loan";
-    case "investment":
-      return "investment";
-    default:
-      return "other";
-  }
-}
+function mapAccountToResponse(account: any) {
+  const balances =
+    typeof account.balances === "string"
+      ? JSON.parse(account.balances)
+      : account.balances;
 
-/**
- * Map our internal Account to clean API response format
- */
-function mapAccountToResponse(account: Account) {
   return {
-    id: account.id,
+    id: account.account_id,
     name: account.name,
     type: account.type,
     subtype: account.subtype,
-    mask: account.plaidAccountId.slice(-4), // Last 4 characters as mask
+    mask: account.mask || account.account_id.slice(-4), // Last 4 characters as mask
     balances: {
-      current: account.balance,
-      currency: account.isoCurrencyCode,
+      current: balances?.current || 0,
+      currency: balances?.iso_currency_code || "USD",
     },
-    plaid_account_id: account.plaidAccountId, // For internal use
+    plaid_account_id: account.account_id,
     updated_at: account.updatedAt,
   };
 }

@@ -14,6 +14,12 @@ import {
   CreditCard,
   ArrowRightLeft,
   DollarSign,
+  Dumbbell,
+  Scissors,
+  Briefcase,
+  PiggyBank,
+  TrendingUp,
+  ShoppingCart,
 } from "lucide-react-native";
 
 export type CategoryType =
@@ -27,7 +33,12 @@ export type CategoryType =
   | "Education"
   | "Travel"
   | "Entertainment"
-  | "Personal"
+  | "Recreation" // NEW: For gyms, sports, hobbies
+  | "Personal Care" // NEW: For grooming, beauty
+  | "Professional Services" // NEW: For business services
+  | "Financial" // NEW: For bank fees, investments
+  | "Income" // NEW: For paychecks, bonuses
+  | "Grocery" // NEW: Separate from general food
   | "Credit Card Payment"
   | "Internal Transfer"
   | "Transfer"
@@ -112,6 +123,48 @@ export const getCategoryConfig = (category: string): CategoryConfig => {
         icon: <Gift size={16} color="#DC2626" />,
         backgroundColor: "#FEE2E2",
         iconColor: "#DC2626",
+      };
+
+    case "Recreation":
+      return {
+        icon: <Dumbbell size={16} color="#7C3AED" />,
+        backgroundColor: "#F3E8FF",
+        iconColor: "#7C3AED",
+      };
+
+    case "Personal Care":
+      return {
+        icon: <Scissors size={16} color="#EC4899" />,
+        backgroundColor: "#FCE7F3",
+        iconColor: "#EC4899",
+      };
+
+    case "Professional Services":
+      return {
+        icon: <Briefcase size={16} color="#374151" />,
+        backgroundColor: "#F3F4F6",
+        iconColor: "#374151",
+      };
+
+    case "Financial":
+      return {
+        icon: <PiggyBank size={16} color="#059669" />,
+        backgroundColor: "#D1FAE5",
+        iconColor: "#059669",
+      };
+
+    case "Income":
+      return {
+        icon: <TrendingUp size={16} color="#10B981" />,
+        backgroundColor: "#ECFDF5",
+        iconColor: "#10B981",
+      };
+
+    case "Grocery":
+      return {
+        icon: <ShoppingCart size={16} color="#F59E0B" />,
+        backgroundColor: "#FEF3C7",
+        iconColor: "#F59E0B",
       };
 
     case "Credit Card Payment":

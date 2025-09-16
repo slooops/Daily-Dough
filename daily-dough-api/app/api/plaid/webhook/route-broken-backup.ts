@@ -19,6 +19,8 @@ import {
   syncStateRepo,
   itemsRepo,
   transactionsRepo,
+  accountsRepo,
+  db,
 } from "../../../../server/repo";
 import { decrypt } from "../../../../lib/crypto";
 import {
@@ -123,7 +125,6 @@ export async function POST(request: NextRequest) {
 
 /**
  * Handle TRANSACTIONS webhooks with background sync (Task 10)
- * Updated to use database repository layer
  */
 async function handleTransactionsWebhook(body: any) {
   const { webhook_code, item_id } = body;
@@ -133,29 +134,31 @@ async function handleTransactionsWebhook(body: any) {
   );
 
   try {
-    // Get the item from database
-    const item = await itemsRepo.getByItemId(item_id);
+    // Get the item and its sync state
+    const item = await getItemById(item_id);
     if (!item) {
       console.error(`❌ Item not found: ${item_id}`);
       return NextResponse.json({ status: "item_not_found" }, { status: 200 });
     }
 
+    const syncState = await getSyncStateByItemId(item_id);
+
     switch (webhook_code) {
       case "INITIAL_UPDATE":
         console.log("📥 Triggering initial transaction sync");
-        await performBackgroundSync(item);
+        await performBackgroundSync(item, syncState);
         break;
       case "HISTORICAL_UPDATE":
         console.log("📚 Triggering historical transaction sync");
-        await performBackgroundSync(item);
+        await performBackgroundSync(item, syncState);
         break;
       case "DEFAULT_UPDATE":
         console.log("🔄 Triggering incremental transaction sync");
-        await performBackgroundSync(item);
+        await performBackgroundSync(item, syncState);
         break;
       case "TRANSACTIONS_REMOVED":
-        console.log("🗑️ Handling removed transactions");
-        await performBackgroundSync(item);
+        console.log("�️ Handling removed transactions");
+        await performBackgroundSync(item, syncState);
         break;
       default:
         console.log(`🤷 Unknown transaction webhook code: ${webhook_code}`);
@@ -170,26 +173,31 @@ async function handleTransactionsWebhook(body: any) {
 }
 
 /**
- * Perform background transaction sync using database repository layer
- * Same logic as refresh endpoint but triggered by webhook
+ * Perform background transaction sync (Task 10)
  */
-async function performBackgroundSync(item: any) {
+async function performBackgroundSync(item: any, syncState: any) {
   try {
-    console.log(`🔄 Starting background sync for item: ${item.item_id}`);
+    console.log(`🔄 Starting background sync for item: ${item.id}`);
 
-    const accessToken = decrypt(item.access_token_enc);
-    let syncState = await syncStateRepo.get(item.item_id);
-    let cursor = syncState?.cursor || "";
+    // Update sync state to 'syncing'
+    await saveSyncState({
+      userId: item.userId,
+      itemId: item.id,
+      cursor: syncState?.cursor,
+      transactionCount: syncState?.transactionCount || 0,
+      status: "syncing",
+    });
+
+    const accessToken = decrypt(item.accessToken);
+    let cursor = syncState?.cursor;
     let hasMore = true;
     let totalAdded = 0;
     let totalModified = 0;
     let totalRemoved = 0;
 
-    // Sync all pages until has_more is false (same logic as refresh endpoint)
+    // Sync all pages until has_more is false
     while (hasMore) {
-      console.log(
-        `📄 Background sync page with cursor: ${cursor || "initial"}`
-      );
+      console.log(`� Background sync page with cursor: ${cursor || "initial"}`);
 
       const syncRequest: TransactionsSyncRequest = {
         access_token: accessToken,
@@ -204,31 +212,33 @@ async function performBackgroundSync(item: any) {
         `📊 Background sync results: ${added.length} added, ${modified.length} modified, ${removed.length} removed`
       );
 
-      // Process transactions using repository layer
-      if (added.length > 0 || modified.length > 0) {
-        const addedFormatted = added.map((tx) =>
-          formatPlaidTransactionForDb(tx, item.item_id)
+      // Process added transactions
+      if (added.length > 0) {
+        const addedTransactions = await mapPlaidTransactionsToApp(
+          added,
+          item.id
         );
-        const modifiedFormatted = modified.map((tx) =>
-          formatPlaidTransactionForDb(tx, item.item_id)
-        );
-
-        const batchResult = await transactionsRepo.upsertBatch({
-          added: addedFormatted,
-          modified: modifiedFormatted,
-        });
-
-        totalAdded += batchResult.addedCount;
-        totalModified += batchResult.modifiedCount;
+        await upsertTransactions(addedTransactions);
+        totalAdded += added.length;
       }
 
-      // Handle removed transactions
+      // Process modified transactions
+      if (modified.length > 0) {
+        const modifiedTransactions = await mapPlaidTransactionsToApp(
+          modified,
+          item.id
+        );
+        await upsertTransactions(modifiedTransactions);
+        totalModified += modified.length;
+      }
+
+      // Process removed transactions
       if (removed.length > 0) {
         const removedIds = removed.map(
           (r: RemovedTransaction) => r.transaction_id
         );
-        const removedCount = await transactionsRepo.applyRemoved(removedIds);
-        totalRemoved += removedCount;
+        await removeTransactions(removedIds);
+        totalRemoved += removed.length;
       }
 
       // Update for next iteration
@@ -237,43 +247,78 @@ async function performBackgroundSync(item: any) {
     }
 
     // Update sync state with success
-    await syncStateRepo.save({
-      item_id: item.item_id,
+    const totalTransactionCount =
+      (syncState?.transactionCount || 0) + totalAdded - totalRemoved;
+    await saveSyncState({
+      userId: item.userId,
+      itemId: item.id,
       cursor,
-      lastSyncedAt: new Date(),
+      transactionCount: totalTransactionCount,
+      status: "idle",
     });
 
     console.log(
-      `✅ Background sync completed for ${item.item_id}: ${totalAdded} added, ${totalModified} modified, ${totalRemoved} removed`
+      `✅ Background sync completed for ${item.id}: ${totalAdded} added, ${totalModified} modified, ${totalRemoved} removed`
     );
   } catch (error) {
-    console.error(`❌ Background sync failed for ${item.item_id}:`, error);
-    // Note: We don't have error tracking in sync state yet, but the error is logged
+    console.error(`❌ Background sync failed for ${item.id}:`, error);
+
+    // Update sync state with error
+    await saveSyncState({
+      userId: item.userId,
+      itemId: item.id,
+      cursor: syncState?.cursor,
+      transactionCount: syncState?.transactionCount || 0,
+      status: "error",
+      error: error instanceof Error ? error.message : "Unknown sync error",
+    });
   }
 }
 
 /**
- * Convert Plaid transaction to database format (same as refresh endpoint)
+ * Helper function to map Plaid transactions to app format
  */
-function formatPlaidTransactionForDb(
-  plaidTx: PlaidTransaction,
-  item_id: string
-): transactionsRepo.TransactionInput {
-  return {
-    transaction_id: plaidTx.transaction_id,
-    account_id: plaidTx.account_id,
-    item_id: item_id,
-    date: plaidTx.date,
-    name: plaidTx.name,
-    merchant_name: plaidTx.merchant_name ?? undefined,
-    amount: plaidTx.amount, // Keep signed: negative = expense, positive = income
-    iso_currency_code: plaidTx.iso_currency_code ?? undefined,
-    category_primary: plaidTx.category?.[0] ?? undefined,
-    category_secondary: plaidTx.category?.[1] ?? undefined,
-    original_description: plaidTx.original_description ?? undefined,
-    pending: plaidTx.pending,
-    raw: plaidTx,
-  };
+async function mapPlaidTransactionsToApp(
+  plaidTransactions: PlaidTransaction[],
+  itemId: string
+): Promise<Omit<any, "id" | "createdAt" | "updatedAt">[]> {
+  // Get accounts for this item to map account IDs
+  const accounts = await getAccounts(itemId);
+  const accountMap = new Map(
+    accounts.map((acc) => [acc.plaidAccountId, acc.id])
+  );
+
+  return plaidTransactions
+    .map((tx) => {
+      const appAccountId = accountMap.get(tx.account_id);
+      if (!appAccountId) {
+        console.warn(
+          `⚠️ No account mapping found for Plaid account: ${tx.account_id}`
+        );
+        return null;
+      }
+
+      // Determine transaction tag based on category and amount
+      let tag: "spend" | "bill" | "ignored" | "refund" = "spend";
+
+      if (tx.amount < 0) {
+        tag = "refund"; // Negative amount = money coming in
+      } else if (tx.category && tx.category.includes("Payment")) {
+        tag = "bill";
+      }
+
+      return {
+        accountId: appAccountId,
+        plaidTransactionId: tx.transaction_id,
+        date: tx.date,
+        merchant: tx.merchant_name || tx.name || "Unknown Merchant",
+        amount: -tx.amount, // Plaid: positive = outflow, App: negative = outflow
+        category: tx.category?.[0] || "Other",
+        subcategory: tx.category?.[1],
+        tag,
+      };
+    })
+    .filter((tx): tx is NonNullable<typeof tx> => tx !== null); // Remove null entries with type guard
 }
 
 /**

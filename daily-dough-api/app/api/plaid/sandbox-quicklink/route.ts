@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { plaid } from "@/lib/plaid";
-import { saveItem } from "@/lib/repository";
+import { itemsRepo, accountsRepo } from "@/server/repo";
 import { encrypt } from "@/lib/crypto";
 import { Products, CountryCode } from "plaid";
 
@@ -51,11 +51,11 @@ export async function GET() {
     // Step 4: Encrypt and store access token
     const encryptedAccessToken = encrypt(access_token);
 
-    const savedItem = await saveItem({
+    const savedItem = await itemsRepo.upsertItem({
       userId: "demo",
-      accessToken: encryptedAccessToken,
-      institutionId: itemResponse.data.item.institution_id!,
-      institutionName: `${institutionName} (Sandbox)`,
+      item_id: item_id,
+      access_token_enc: encryptedAccessToken,
+      institution_id: itemResponse.data.item.institution_id!,
     });
 
     console.log(`💾 Stored sandbox item: ${savedItem.id}`);
@@ -74,6 +74,24 @@ export async function GET() {
     }));
 
     console.log(`📊 Found ${accounts.length} accounts`);
+
+    // Step 6: Save accounts to repository
+    const accountsToSave = accountsResponse.data.accounts.map((acc) => ({
+      account_id: acc.account_id,
+      item_id: item_id,
+      name: acc.name,
+      type: acc.type,
+      subtype: acc.subtype || undefined,
+      mask: acc.mask || undefined,
+      balances: acc.balances,
+      raw: acc,
+    }));
+
+    const savedAccounts = await accountsRepo.upsertMany(
+      item_id,
+      accountsToSave
+    );
+    console.log(`💾 Saved ${savedAccounts.length} accounts to repository`);
 
     return NextResponse.json({
       success: true,

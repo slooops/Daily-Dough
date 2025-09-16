@@ -65,7 +65,7 @@ function loadConfig(): Config {
         ),
       },
       database: {
-        url: validateEnvVar("DATABASE_URL", process.env.DATABASE_URL),
+        url: process.env.DATABASE_URL || "file:./prisma/dev.db", // Fallback to SQLite for development
       },
       encryption: {
         key: validateEnvVar("ENCRYPTION_KEY", process.env.ENCRYPTION_KEY),

@@ -1,6 +1,11 @@
 import React from "react";
 import { View } from "react-native";
-import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react-native";
+import {
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+} from "lucide-react-native";
 import { Badge } from "./ui/Badge";
 
 export function SyncStatus({
@@ -8,7 +13,7 @@ export function SyncStatus({
   lastSynced,
   compact = false,
 }: {
-  status: "idle" | "syncing" | "error";
+  status: "idle" | "syncing" | "error" | "initializing";
   lastSynced?: string;
   compact?: boolean;
 }) {
@@ -17,6 +22,8 @@ export function SyncStatus({
       <RefreshCw size={12} />
     ) : status === "error" ? (
       <AlertCircle size={12} />
+    ) : status === "initializing" ? (
+      <Clock size={12} />
     ) : (
       <CheckCircle size={12} />
     );
@@ -25,6 +32,8 @@ export function SyncStatus({
       ? "default"
       : status === "error"
       ? "destructive"
+      : status === "initializing"
+      ? "secondary"
       : "secondary";
   const text = compact
     ? ""
@@ -32,8 +41,10 @@ export function SyncStatus({
     ? "Syncing..."
     : status === "error"
     ? "Error"
+    : status === "initializing"
+    ? "Preparing transactions..."
     : lastSynced
-    ? `Last synced ${new Date(lastSynced).toLocaleTimeString("en-US", {
+    ? `Synced ${new Date(lastSynced).toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
       })}`

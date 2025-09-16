@@ -8,13 +8,26 @@ export function useMorningOpen() {
   useEffect(() => {
     const check = async () => {
       try {
-        const today = new Date().toDateString();
+        const now = new Date();
+        if (!now || isNaN(now.getTime())) {
+          console.warn("⚠️ Invalid date in useMorningOpen, skipping");
+          return;
+        }
+
+        const today = now.toDateString();
+        if (!today) {
+          console.warn("⚠️ Failed to get dateString in useMorningOpen");
+          return;
+        }
+
         const lastOpen = await AsyncStorage.getItem("lastOpenDate");
         if (lastOpen !== today) {
           setShow(true);
           await AsyncStorage.setItem("lastOpenDate", today);
         }
-      } catch {}
+      } catch (error) {
+        console.error("❌ Error in useMorningOpen:", error);
+      }
     };
     check();
   }, []);

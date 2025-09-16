@@ -20,6 +20,7 @@ import {
 import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
+import { TransactionTable } from "../components/ui/TransactionTable";
 import { SyncStatus } from "../components/SyncStatus.native";
 import {
   usePlaidLink,
@@ -149,6 +150,20 @@ export default function ConnectAccountsScreen() {
     return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
   };
 
+  // Transform accounts for TransactionTable component
+  const accountTableData = accounts.map((account) => ({
+    id: account.id,
+    merchant: account.name,
+    date: account.lastSynced, // Not used for account tables
+    emoji: account.logo,
+    provider: account.accountType, // Use accountType for connect-accounts
+    balance: account.balance,
+    syncStatus: {
+      status: account.status,
+      lastSynced: account.lastSynced,
+    },
+  }));
+
   const providers = [
     {
       id: "plaid" as const,
@@ -160,8 +175,8 @@ export default function ConnectAccountsScreen() {
     {
       id: "teller" as const,
       name: "Teller",
-      logo: "🏚️",
-      description: "Coming soon",
+      logo: "🛠️",
+      description: "Coming soon maybe...",
       isDefault: false,
     },
   ];
@@ -334,68 +349,18 @@ export default function ConnectAccountsScreen() {
 
         {/* Connected accounts */}
         {(accounts.length > 0 || isLoading) && (
-          <Card style={{ marginBottom: 16 }}>
-            <CardContent>
-              <View style={[styles.row, { marginBottom: 16 }]}>
-                <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
-                  {isLoading ? (
-                    <Loader2 size={16} color="#16A34A" />
-                  ) : (
-                    <Check size={16} color="#16A34A" />
-                  )}
-                </View>
-                <Text style={styles.cardTitle}>
-                  {isLoading ? "Loading Accounts..." : "Connected Accounts"}
-                </Text>
-                {accounts.length > 0 && (
-                  <Badge variant="secondary" style={{ marginLeft: 6 }}>
-                    {String(accounts.length)}
-                  </Badge>
-                )}
-              </View>
-              {isLoading ? (
-                <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                  <Loader2 size={24} color="#6B7280" />
-                  <Text style={[styles.muted, { marginTop: 8 }]}>
-                    Loading your accounts...
-                  </Text>
-                </View>
-              ) : accounts.length > 0 ? (
-                accounts.map((a, i) => (
-                  <View key={a.id}>
-                    <View style={styles.rowBetween}>
-                      <View style={styles.row}>
-                        <View style={styles.accountLogo}>
-                          <Text style={{ fontSize: 16 }}>{a.logo}</Text>
-                        </View>
-                        <View>
-                          <Text style={styles.itemTitle}>{a.name}</Text>
-                          <View style={styles.row}>
-                            <Text style={styles.muted}>{a.accountType}</Text>
-                            <Text style={[styles.muted, { marginLeft: 6 }]}>
-                              •
-                            </Text>
-                            <Text style={[styles.muted, { fontWeight: "600" }]}>
-                              ${Math.abs(a.balance).toLocaleString()}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <SyncStatus status={a.status} lastSynced={a.lastSynced} />
-                    </View>
-                    {i < accounts.length - 1 && <Separator />}
-                  </View>
-                ))
+          <TransactionTable
+            title={isLoading ? "Loading Accounts..." : "Connected Accounts"}
+            headerIcon={
+              isLoading ? (
+                <Loader2 size={16} color="#16A34A" />
               ) : (
-                <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                  <Text style={[styles.muted, { textAlign: "center" }]}>
-                    No accounts connected yet.{"\n"}
-                    Connect a bank account to get started.
-                  </Text>
-                </View>
-              )}
-            </CardContent>
-          </Card>
+                <Check size={16} color="#16A34A" />
+              )
+            }
+            data={accountTableData}
+            style={{ marginBottom: 16 }}
+          />
         )}
 
         {/* Privacy note */}

@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Item {
+  id               String                @id @default(cuid())
+  userId           String
+  item_id          String                @unique
+  access_token_enc String
+  institution_id   String
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  accounts         Account[]
+  syncState        TransactionSyncState?
+  transactions     Transaction[]
+
+  @@map("items")
+}
+
+model TransactionSyncState {
+  item_id      String   @id
+  cursor       String?
+  lastSyncedAt DateTime @default(now())
+  item         Item     @relation(fields: [item_id], references: [item_id], onDelete: Cascade)
+
+  @@map("transaction_sync_state")
+}
+
+model Account {
+  account_id   String        @id
+  item_id      String
+  name         String
+  type         String
+  subtype      String?
+  mask         String?
+  balances     String
+  raw          String
+  updatedAt    DateTime      @updatedAt
+  item         Item          @relation(fields: [item_id], references: [item_id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+model Transaction {
+  transaction_id       String   @id
+  account_id           String
+  item_id              String
+  date                 String
+  name                 String
+  merchant_name        String?
+  amount               Float
+  iso_currency_code    String?
+  category_primary     String?
+  category_secondary   String?
+  original_description String?
+  pending              Boolean  @default(false)
+  status               String   @default("active")
+  raw                  String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  account              Account  @relation(fields: [account_id], references: [account_id], onDelete: Cascade)
+  item                 Item     @relation(fields: [item_id], references: [item_id], onDelete: Cascade)
+
+  @@index([item_id, date])
+  @@index([account_id, date])
+  @@map("transactions")
+}
+
+model IgnoredTransaction {
+  id               String   @id @default(cuid())
+  userId           String
+  transaction_id   String?
+  merchant_pattern String?
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, transaction_id])
+  @@map("ignored_transactions")
+}
+
+model Bill {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  amount          Float?
+  amount_strategy String?
+  expected_day    Int?
+  rrule           String?
+  account_id      String?
+  category        String?
+  status          String   @default("active")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("bills")
+}
+
+model WishlistItem {
+  id                String   @id @default(cuid())
+  userId            String
+  title             String
+  url               String?
+  target_amount     Float
+  allocated_percent Int      @default(0)
+  current_amount    Float    @default(0)
+  status            String   @default("active")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("wishlist_items")
+}
+
+model DailyBudgetResult {
+  id                String   @id @default(cuid())
+  userId            String
+  date              String
+  allowance         Float
+  spend_actual      Float
+  credits_actual    Float
+  remaining         Float
+  within_budget     Boolean
+  reason_exclusions String?
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, date])
+  @@map("daily_budget_results")
+}
+
+model StreakState {
+  userId                  String   @id
+  current_streak          Int      @default(0)
+  longest_streak          Int      @default(0)
+  last_within_budget_date String?
+  updatedAt               DateTime @updatedAt
+
+  @@map("streak_state")
+}
+
+model SlushLedger {
+  id                String   @id @default(cuid())
+  userId            String
+  date              String
+  start_balance     Float
+  daily_surplus     Float
+  slush_end_balance Float
+  createdAt         DateTime @default(now())
+
+  @@index([userId, date])
+  @@map("slush_ledger")
+}

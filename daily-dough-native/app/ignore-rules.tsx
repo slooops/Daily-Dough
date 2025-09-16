@@ -105,9 +105,8 @@ export default function IgnoreRulesScreen() {
       month: "short",
       day: "numeric",
     }),
-    amount: Math.abs(t.amount),
+    amount: t.amount, // Keep original amount with sign for color calculation
     tag: t.tag,
-    amountColor: t.amount < 0 ? "#DC2626" : "#059669",
     badge: { text: t.type, variant: "secondary" as const },
     icon:
       t.tag === "ignored" ? (

@@ -2,20 +2,35 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
 export interface Transaction {
-  id: number | string;
-  date: string;
-  merchant: string;
+  // Plaid transaction structure
+  transaction_id: string;
+  account_id: string;
+  name: string;
+  merchant_name: string | null;
   amount: number;
-  tag: "spend" | "ignored" | "bill";
-  category?: string;
+  category_primary: string;
+  category_secondary: string | null;
+  date: Date | string;
+
+  // Optional UI-specific properties that might be added during processing
+  id?: number | string; // Legacy support
+  merchant?: string; // Processed merchant name
+  tag?: "spend" | "ignored" | "bill";
+  category?: string; // Processed category
 }
 
 export function TransactionRow({ transaction }: { transaction: Transaction }) {
   const isNegative = transaction.amount < 0;
+  const merchantName =
+    transaction.merchant ||
+    transaction.merchant_name ||
+    transaction.name ||
+    "Unknown";
+
   return (
     <View style={styles.row}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.merchant}>{transaction.merchant}</Text>
+        <Text style={styles.merchant}>{merchantName}</Text>
         <Text style={styles.meta}>
           {new Date(transaction.date).toLocaleTimeString([], {
             hour: "numeric",
