@@ -22,6 +22,7 @@ import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
 import { TransactionTable } from "../components/ui/TransactionTable";
 import { SyncStatus } from "../components/SyncStatus.native";
+import { glass } from "../styles/theme";
 import {
   usePlaidLink,
   fetchUserAccounts,
@@ -31,7 +32,7 @@ import {
 export default function ConnectAccountsScreen() {
   const router = useRouter();
   const [selectedProvider, setSelectedProvider] = useState<"plaid" | "teller">(
-    "plaid"
+    "plaid",
   );
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,7 +71,7 @@ export default function ConnectAccountsScreen() {
           "Connection Failed",
           error.error_message ||
             "Unable to connect to your bank. Please try again.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
       } else {
         setConnectionStatus("Connection cancelled by user");
@@ -119,7 +120,7 @@ export default function ConnectAccountsScreen() {
           ? `${transformedAccounts.length} account${
               transformedAccounts.length !== 1 ? "s" : ""
             } connected`
-          : "No accounts connected"
+          : "No accounts connected",
       );
     } catch (error) {
       console.error("Failed to fetch accounts:", error);
@@ -207,7 +208,7 @@ export default function ConnectAccountsScreen() {
       Alert.alert(
         "Connection Error",
         "Unable to start bank connection. Please check your internet connection and try again.",
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
     }
   };
@@ -342,8 +343,8 @@ export default function ConnectAccountsScreen() {
             {isConnecting
               ? `Connecting via ${selectedProvider}...`
               : selectedProvider === "teller"
-              ? "Coming Soon"
-              : `Connect with ${selectedProvider}`}
+                ? "Coming Soon"
+                : `Connect with ${selectedProvider}`}
           </Text>
         </Pressable>
 
@@ -413,7 +414,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
   },
-  backBtn: { padding: 8, borderRadius: 20 },
+  backBtn: { padding: 8, borderRadius: glass.radius },
   title: { fontSize: 18, fontWeight: "700", color: "#111827" },
   subtle: { fontSize: 12, color: "#6B7280" },
   scroll: { padding: 16 },
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
   providerRow: {
     borderWidth: 2,
     borderColor: "#E5E7EB",
-    borderRadius: 24,
+    borderRadius: glass.radiusLarge,
     padding: 16,
     marginVertical: 6,
     flexDirection: "row",
@@ -480,7 +481,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: 12, color: "#6B7280" },
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    borderRadius: 24,
+    borderRadius: glass.radiusLarge,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     borderWidth: 2,
     borderColor: "#E5E7EB",
-    borderRadius: 24,
+    borderRadius: glass.radiusLarge,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",

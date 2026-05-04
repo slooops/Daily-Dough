@@ -155,3 +155,37 @@ model SlushLedger {
   @@index([userId, date])
   @@map("slush_ledger")
 }
+
+model UserProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  grossPaycheck Float
+  payCadence    String   // weekly, biweekly, semimonthly, monthly
+  monthlyRent   Float
+  periodStart   String   // ISO date string
+  periodEnd     String   // ISO date string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+model PeriodHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  periodStart     String
+  periodEnd       String
+  totalBudget     Float
+  totalSpend      Float
+  totalCredits    Float
+  slushEnd        Float
+  sentToBank      Float
+  carryOver       Float
+  streakLongest   Int
+  daysWithinBudget Int
+  daysTotal       Int
+  createdAt       DateTime @default(now())
+
+  @@index([userId, periodStart])
+  @@map("period_history")
+}

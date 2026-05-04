@@ -1,24 +1,23 @@
 import React from "react";
+import { GlassPill } from "./ui/GlassPill";
 import { View, Text, StyleSheet } from "react-native";
+import { glassColors, glass } from "../styles/theme";
 
 export function SlushPill({ amount }: { amount: number }) {
+  const tint = amount < 0 ? "red" : "green";
+  const color = amount < 0 ? glassColors.danger : glassColors.success;
+
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>Underspend Saved:</Text>
-      <Text style={styles.value}>${amount.toFixed(0)}</Text>
-    </View>
+    <GlassPill tint={tint}>
+      <Text style={[styles.label, { color }]}>Underspend Saved</Text>
+      <Text style={[styles.value, { color }]}>
+        ${Math.abs(amount).toFixed(0)}
+      </Text>
+    </GlassPill>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#ECFDF5",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 6,
-  },
-  label: { color: "#065F46", fontSize: 14, fontWeight: "500" },
-  value: { color: "#065F46", fontSize: 14, fontWeight: "700" },
+  label: { fontSize: 13, fontWeight: "500" },
+  value: { fontSize: 13, fontWeight: "700" },
 });

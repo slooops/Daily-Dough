@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
   Building2,
@@ -11,14 +12,15 @@ import {
   Receipt,
   Loader2,
 } from "lucide-react-native";
-import { fetchUserAccounts } from "../services/plaidService";
-import { Badge } from "../components/ui/Badge";
-import { Separator } from "../components/ui/Separator";
-import { Card, CardContent } from "../components/ui/Card";
-import { TransactionTable } from "../components/ui/TransactionTable";
-import { SyncStatus } from "../components/SyncStatus.native";
-import { SlushPill } from "../components/SlushPill";
-import { typography, spacing, borderRadius, colors } from "../styles/common";
+import { fetchUserAccounts } from "../../services/plaidService";
+import { Badge } from "../../components/ui/Badge";
+import { Separator } from "../../components/ui/Separator";
+import { Card, CardContent } from "../../components/ui/Card";
+import { TransactionTable } from "../../components/ui/TransactionTable";
+import { SyncStatus } from "../../components/SyncStatus.native";
+import { SlushPill } from "../../components/SlushPill";
+import { typography, spacing, borderRadius, colors } from "../../styles/common";
+import { glass } from "../../styles/theme";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -70,7 +72,7 @@ export default function SettingsScreen() {
         console.log("⚙️ Settings screen focused, reloading accounts...");
         loadAccounts();
       }
-    }, [loadAccounts, accounts.length])
+    }, [loadAccounts, accounts.length]),
   );
 
   // Helper functions
@@ -108,20 +110,11 @@ export default function SettingsScreen() {
   }));
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          hitSlop={8}
-        >
-          <ChevronLeft size={20} color="#111827" />
-        </Pressable>
-        <View>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtle}>Manage your Daily Dollars</Text>
-        </View>
+        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.subtle}>Manage your Daily Dollars</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -265,9 +258,9 @@ export default function SettingsScreen() {
             </Pressable>
           </CardContent>
         </Card>
-        <View style={{ height: spacing.xl }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -284,7 +277,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
   },
-  backBtn: { padding: spacing.sm, borderRadius: borderRadius.lg },
+  backBtn: { padding: spacing.sm, borderRadius: glass.radius },
   title: typography.subtitle,
   subtle: typography.caption,
   scroll: { padding: spacing.lg },
@@ -317,7 +310,7 @@ const styles = StyleSheet.create({
   accountLogo: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.lg,
+    borderRadius: glass.radius,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
@@ -327,7 +320,7 @@ const styles = StyleSheet.create({
   buttonOutline: {
     borderWidth: 2,
     borderColor: colors.border,
-    borderRadius: borderRadius.lg,
+    borderRadius: glass.radius,
     paddingVertical: spacing.md,
     alignItems: "center",
   },

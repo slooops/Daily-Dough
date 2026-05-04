@@ -11,6 +11,7 @@ import {
 import { Badge } from "../components/ui/Badge";
 import { Card, CardContent } from "../components/ui/Card";
 import { Separator } from "../components/ui/Separator";
+import { glass } from "../styles/theme";
 
 export default function StreaksSlushExplainerScreen() {
   const router = useRouter();
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
   },
-  backBtn: { padding: 8, borderRadius: 20 },
+  backBtn: { padding: 8, borderRadius: glass.radius },
   title: { fontSize: 18, fontWeight: "700", color: "#111827" },
   subtle: { fontSize: 12, color: "#6B7280" },
   scroll: { padding: 16 },
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
   pillInfo: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    borderRadius: 24,
+    borderRadius: glass.radiusLarge,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",

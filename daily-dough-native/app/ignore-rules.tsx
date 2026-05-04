@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,118 +6,138 @@ import {
   Pressable,
   ScrollView,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { ChevronLeft, EyeOff, Info, Plus, Trash2 } from "lucide-react-native";
 import { Card, CardContent } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
 import { TransactionTable } from "../components/ui/TransactionTable";
+import {
+  fetchIgnoreRules,
+  addIgnoreRule,
+  deleteIgnoreRule,
+  IgnoreRule,
+} from "../services/ignoredService";
+import { fetchUserTransactions } from "../services/plaidService";
+import { recomputeAllowance } from "../services/allowanceService";
 import {
   getCategoryIcon,
   getCategoryBackgroundColor,
 } from "../utils/categoryIcons";
-
-type Rule = {
-  id: number;
-  pattern: string;
-  type: "Internal Transfer" | "Credit Card Payment" | "Transfer";
-};
-type Tx = {
-  id: number;
-  date: string;
-  merchant: string;
-  amount: number;
-  tag: "spend" | "ignored";
-  type: Rule["type"];
-};
+import { inferCategoryFromMerchant } from "../utils/categoryInference";
+import { glass } from "../styles/theme";
 
 export default function IgnoreRulesScreen() {
   const router = useRouter();
-  const [rules, setRules] = useState<Rule[]>([
-    { id: 1, pattern: "USAA → Chase Card", type: "Credit Card Payment" },
-    { id: 2, pattern: "Transfer from CHECKING", type: "Internal Transfer" },
-  ]);
-  const [txs, setTxs] = useState<Tx[]>([
-    {
-      id: 1,
-      date: "2025-08-17T16:45",
-      merchant: "PAYMENT TO CHASE CARD",
-      amount: -300,
-      tag: "spend",
-      type: "Credit Card Payment",
-    },
-    {
-      id: 2,
-      date: "2025-08-16T09:30",
-      merchant: "VENMO CASHOUT",
-      amount: 45,
-      tag: "spend",
-      type: "Transfer",
-    },
-  ]);
-  const [newRule, setNewRule] = useState<{
-    pattern: string;
-    type: Rule["type"];
-  }>({ pattern: "", type: "Internal Transfer" });
+  const [rules, setRules] = useState<IgnoreRule[]>([]);
+  const [recentTxs, setRecentTxs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newPattern, setNewPattern] = useState("");
 
-  const toggleTxIgnore = (id: number) =>
-    setTxs((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, tag: t.tag === "ignored" ? "spend" : "ignored" }
-          : t
-      )
-    );
-  const removeRule = (id: number) =>
-    setRules((prev) => prev.filter((r) => r.id !== id));
-  const addRule = () => {
-    if (!newRule.pattern) return;
-    setRules((prev) =>
-      prev.concat({
-        id: Date.now(),
-        pattern: newRule.pattern,
-        type: newRule.type,
-      })
-    );
-    setNewRule({ pattern: "", type: "Internal Transfer" });
+  const userId = "demo";
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    const [rulesData, txResult] = await Promise.all([
+      fetchIgnoreRules(userId),
+      fetchUserTransactions(userId, { limit: 15 }),
+    ]);
+    setRules(rulesData);
+    setRecentTxs(txResult.transactions ?? []);
+    setIsLoading(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
+
+  // Build a set of ignored transaction_ids and patterns for highlighting
+  const ignoredTxIds = new Set(
+    rules.filter((r) => r.transaction_id).map((r) => r.transaction_id!),
+  );
+  const ignoredPatterns = rules
+    .filter((r) => r.merchant_pattern)
+    .map((r) => r.merchant_pattern!.toLowerCase());
+
+  const isIgnored = (tx: any): boolean => {
+    if (ignoredTxIds.has(tx.transaction_id)) return true;
+    const merchant = (tx.merchant_name || tx.name || "").toLowerCase();
+    return ignoredPatterns.some((p) => merchant.includes(p));
   };
 
-  // Transform rule data for TransactionTable component
+  const handleAddPattern = async () => {
+    if (!newPattern.trim()) return;
+    const result = await addIgnoreRule(userId, {
+      merchant_pattern: newPattern.trim(),
+    });
+    if (result) {
+      setRules((prev) => [result, ...prev]);
+      setNewPattern("");
+      recomputeAllowance(userId);
+    }
+  };
+
+  const handleIgnoreTx = async (transactionId: string) => {
+    if (ignoredTxIds.has(transactionId)) return;
+    const result = await addIgnoreRule(userId, {
+      transaction_id: transactionId,
+    });
+    if (result) {
+      setRules((prev) => [result, ...prev]);
+      recomputeAllowance(userId);
+    }
+  };
+
+  const handleDeleteRule = async (id: string) => {
+    const ok = await deleteIgnoreRule(id);
+    if (ok) {
+      setRules((prev) => prev.filter((r) => r.id !== id));
+      recomputeAllowance(userId);
+    }
+  };
+
+  // Transform rules for TransactionTable
   const rulesTableData = rules.map((r) => ({
-    id: r.id.toString(),
-    merchant: r.pattern,
-    date: "", // No date for rules
-    subtitle: r.type,
-    icon: getCategoryIcon(r.type),
-    iconBackgroundColor: getCategoryBackgroundColor(r.type),
+    id: r.id,
+    merchant: r.merchant_pattern ?? r.transaction_id ?? "Unknown",
+    date: "",
+    subtitle: r.merchant_pattern ? "Pattern match" : "Specific transaction",
+    icon: <EyeOff size={16} color="#4B5563" />,
+    iconBackgroundColor: "#F3F4F6",
     actionButton: {
       icon: <Trash2 size={16} color="#DC2626" />,
-      onPress: () => removeRule(r.id),
+      onPress: () => handleDeleteRule(r.id),
       backgroundColor: "#FEF2F2",
     },
   }));
 
-  // Transform transaction data for TransactionTable component
-  const transactionTableData = txs.map((t) => ({
-    id: t.id.toString(),
-    merchant: t.merchant,
-    date: new Date(t.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
-    amount: t.amount, // Keep original amount with sign for color calculation
-    tag: t.tag,
-    badge: { text: t.type, variant: "secondary" as const },
-    icon:
-      t.tag === "ignored" ? (
+  // Transform transactions for TransactionTable
+  const transactionTableData = recentTxs.map((t: any) => {
+    const merchant = t.merchant_name || t.name || "Unknown";
+    const category = inferCategoryFromMerchant(
+      merchant,
+      t.category_primary || "",
+    );
+    const ignored = isIgnored(t);
+    return {
+      id: t.transaction_id || t.id || "unknown",
+      merchant,
+      date: t.date || "",
+      amount: t.amount ?? 0,
+      tag: ignored ? "ignored" : "spend",
+      icon: ignored ? (
         <EyeOff size={16} color="#4B5563" />
       ) : (
-        getCategoryIcon(t.type)
+        getCategoryIcon(category)
       ),
-    iconBackgroundColor:
-      t.tag === "ignored" ? "#F3F4F6" : getCategoryBackgroundColor(t.type),
-    onPress: () => toggleTxIgnore(t.id),
-  }));
+      iconBackgroundColor: ignored
+        ? "#F3F4F6"
+        : getCategoryBackgroundColor(category),
+      onPress: ignored ? undefined : () => handleIgnoreTx(t.transaction_id),
+    };
+  });
 
   return (
     <View style={styles.root}>
@@ -151,67 +171,53 @@ export default function IgnoreRulesScreen() {
           </CardContent>
         </Card>
 
-        {rules.length > 0 && (
-          <TransactionTable
-            title="Active Ignore Rules"
-            data={rulesTableData}
-            headerIcon={<EyeOff size={16} color="#4B5563" />}
-            style={{ marginBottom: 16 }}
-          />
-        )}
-
-        {/* Add rule */}
-        <Card style={{ marginBottom: 16 }}>
-          <CardContent>
-            <Text style={[styles.cardTitle, { marginBottom: 16 }]}>
-              Add Ignore Rule
-            </Text>
-            <View style={{ gap: 12 }}>
-              <TextInput
-                placeholder="Transaction Pattern (e.g., PAYMENT TO CHASE CARD)"
-                value={newRule.pattern}
-                onChangeText={(t) =>
-                  setNewRule((prev) => ({ ...prev, pattern: t }))
-                }
-                style={styles.input}
+        {isLoading ? (
+          <ActivityIndicator size="small" style={{ marginVertical: 20 }} />
+        ) : (
+          <>
+            {rules.length > 0 && (
+              <TransactionTable
+                title="Active Ignore Rules"
+                data={rulesTableData}
+                headerIcon={<EyeOff size={16} color="#4B5563" />}
+                style={{ marginBottom: 16 }}
               />
-              <Pressable
-                onPress={() =>
-                  setNewRule((prev) => ({
-                    ...prev,
-                    type:
-                      prev.type === "Internal Transfer"
-                        ? "Credit Card Payment"
-                        : prev.type === "Credit Card Payment"
-                        ? "Transfer"
-                        : "Internal Transfer",
-                  }))
-                }
-                style={[styles.buttonSecondary, { alignSelf: "flex-start" }]}
-              >
-                <Text style={styles.buttonSecondaryText}>
-                  Category: {newRule.type}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={addRule}
-                style={[styles.buttonPrimary, { alignSelf: "flex-start" }]}
-              >
-                <Plus size={16} color="#fff" />
-                <Text style={[styles.buttonPrimaryText, { marginLeft: 6 }]}>
-                  Add Rule
-                </Text>
-              </Pressable>
-            </View>
-          </CardContent>
-        </Card>
+            )}
 
-        {/* Recent transactions */}
-        <TransactionTable
-          title="Recent Transactions"
-          data={transactionTableData}
-          style={{ marginBottom: 16 }}
-        />
+            {/* Add rule by pattern */}
+            <Card style={{ marginBottom: 16 }}>
+              <CardContent>
+                <Text style={[styles.cardTitle, { marginBottom: 16 }]}>
+                  Add Ignore Rule
+                </Text>
+                <View style={{ gap: 12 }}>
+                  <TextInput
+                    placeholder="Merchant pattern (e.g., CHASE CARD)"
+                    value={newPattern}
+                    onChangeText={setNewPattern}
+                    style={styles.input}
+                  />
+                  <Pressable
+                    onPress={handleAddPattern}
+                    style={[styles.buttonPrimary, { alignSelf: "flex-start" }]}
+                  >
+                    <Plus size={16} color="#fff" />
+                    <Text style={[styles.buttonPrimaryText, { marginLeft: 6 }]}>
+                      Add Rule
+                    </Text>
+                  </Pressable>
+                </View>
+              </CardContent>
+            </Card>
+
+            {/* Recent transactions — tap to ignore */}
+            <TransactionTable
+              title="Recent Transactions"
+              data={transactionTableData}
+              style={{ marginBottom: 16 }}
+            />
+          </>
+        )}
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -232,7 +238,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
   },
-  backBtn: { padding: 8, borderRadius: 20 },
+  backBtn: { padding: 8, borderRadius: glass.radius },
   title: { fontSize: 18, fontWeight: "700", color: "#111827" },
   subtle: { fontSize: 12, color: "#6B7280" },
   scroll: { padding: 16 },
@@ -242,28 +248,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  circle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   cardTitle: { fontWeight: "600", fontSize: 16 },
   itemTitle: { fontSize: 14, fontWeight: "500", color: "#111827" },
   muted: { fontSize: 12, color: "#6B7280" },
   input: {
     borderWidth: 2,
     borderColor: "#E5E7EB",
-    borderRadius: 20,
+    borderRadius: glass.radius,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
   },
-  value: { fontWeight: "700" },
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    borderRadius: 24,
+    borderRadius: glass.radiusLarge,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: "center",
@@ -271,12 +269,4 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   buttonPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  buttonSecondary: {
-    borderWidth: 2,
-    borderColor: "#E5E7EB",
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  buttonSecondaryText: { fontWeight: "600", color: "#111827" },
 });

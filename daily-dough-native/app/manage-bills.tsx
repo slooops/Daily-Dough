@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   Pressable,
   ScrollView,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import {
   ChevronLeft,
   DollarSign,
@@ -17,136 +18,73 @@ import {
   Plus,
 } from "lucide-react-native";
 import { Card, CardContent } from "../components/ui/Card";
-import { Separator } from "../components/ui/Separator";
-import { Badge } from "../components/ui/Badge";
 import {
-  TransactionTable,
-  TransactionTableItem,
-} from "../components/ui/TransactionTable";
-import {
-  getCategoryIcon,
-  getCategoryBackgroundColor,
-} from "../utils/categoryIcons";
-
-type Bill = {
-  id: number;
-  merchant: string;
-  amount: number;
-  frequency: "weekly" | "biweekly" | "monthly" | "yearly";
-};
-type Tx = {
-  id: number;
-  date: string;
-  merchant: string;
-  amount: number;
-  tag: "spend" | "bill";
-  category: string;
-};
+  fetchBills,
+  addBill,
+  deleteBill,
+  Bill,
+} from "../services/billsService";
+import { recomputeAllowance } from "../services/allowanceService";
+import { glass } from "../styles/theme";
 
 export default function ManageBillsScreen() {
   const router = useRouter();
-  const [bills, setBills] = useState<Bill[]>([
-    { id: 1, merchant: "Rent Payment", amount: 1200, frequency: "monthly" },
-    { id: 2, merchant: "Netflix", amount: 15.99, frequency: "monthly" },
-  ]);
-  const [txs, setTxs] = useState<Tx[]>([
-    {
-      id: 1,
-      date: "2025-08-17T14:30",
-      merchant: "Electric Company",
-      amount: -85.5,
-      tag: "spend",
-      category: "Utilities",
-    },
-    {
-      id: 2,
-      date: "2025-08-16T09:15",
-      merchant: "Netflix",
-      amount: -15.99,
-      tag: "bill",
-      category: "Subscriptions",
-    },
-    {
-      id: 3,
-      date: "2025-08-15T16:22",
-      merchant: "Starbucks",
-      amount: -4.75,
-      tag: "spend",
-      category: "Food",
-    },
-    {
-      id: 4,
-      date: "2025-08-15T08:00",
-      merchant: "Rent Payment",
-      amount: -1200,
-      tag: "bill",
-      category: "Housing",
-    },
-  ]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newBill, setNewBill] = useState({
-    merchant: "",
+    name: "",
     amount: "",
-    frequency: "monthly" as Bill["frequency"],
+    frequency: "monthly" as "monthly" | "yearly",
   });
+
+  const userId = "demo";
+
+  const loadBills = useCallback(async () => {
+    const data = await fetchBills(userId);
+    setBills(data);
+    setIsLoading(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBills();
+    }, [loadBills]),
+  );
 
   const monthlyTotal = useMemo(
     () =>
       bills.reduce((sum, b) => {
-        const m =
-          b.frequency === "monthly"
-            ? b.amount
-            : b.frequency === "weekly"
-            ? b.amount * 4.33
-            : b.frequency === "biweekly"
-            ? b.amount * 2.17
-            : b.amount / 12;
-        return sum + m;
+        const amt = b.amount ?? 0;
+        const freq = b.amount_strategy ?? "monthly";
+        return sum + (freq === "yearly" ? amt / 12 : amt);
       }, 0),
-    [bills]
+    [bills],
   );
 
-  // Transform transactions for TransactionTable
-  const transactionTableData: TransactionTableItem[] = useMemo(
-    () =>
-      txs.map((t) => ({
-        id: t.id.toString(),
-        date: t.date,
-        merchant: t.merchant,
-        amount: t.amount,
-        tag: t.tag,
-        category: t.category,
-        icon: getCategoryIcon(t.category),
-        iconBackgroundColor: getCategoryBackgroundColor(t.category),
-        onPress: () => toggleTxBill(t.id),
-        badge:
-          t.tag === "bill"
-            ? { text: "Bill", variant: "secondary" as const }
-            : undefined,
-      })),
-    [txs]
-  );
-
-  const toggleTxBill = (id: number) =>
-    setTxs((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, tag: t.tag === "bill" ? "spend" : "bill" } : t
-      )
-    );
-  const removeBill = (id: number) =>
-    setBills((prev) => prev.filter((b) => b.id !== id));
-  const addBill = () => {
-    if (!newBill.merchant || !newBill.amount) return;
+  const handleAddBill = async () => {
+    if (!newBill.name || !newBill.amount) return;
     const amountNum = parseFloat(newBill.amount);
-    if (Number.isNaN(amountNum)) return;
-    setBills((prev) =>
-      prev.concat({
-        id: Date.now(),
-        merchant: newBill.merchant,
-        amount: amountNum,
-        frequency: newBill.frequency,
-      })
+    if (Number.isNaN(amountNum) || amountNum <= 0) return;
+
+    const result = await addBill(
+      userId,
+      newBill.name,
+      amountNum,
+      newBill.frequency,
     );
-    setNewBill({ merchant: "", amount: "", frequency: "monthly" });
+    if (result) {
+      setBills((prev) => [result, ...prev]);
+      setNewBill({ name: "", amount: "", frequency: "monthly" });
+      recomputeAllowance(userId);
+    }
+  };
+
+  const handleDeleteBill = async (id: string) => {
+    const ok = await deleteBill(id);
+    if (ok) {
+      setBills((prev) => prev.filter((b) => b.id !== id));
+      recomputeAllowance(userId);
+    }
   };
 
   return (
@@ -193,7 +131,9 @@ export default function ManageBillsScreen() {
         </Card>
 
         {/* Current bills list */}
-        {bills.length > 0 && (
+        {isLoading ? (
+          <ActivityIndicator size="small" style={{ marginVertical: 20 }} />
+        ) : bills.length > 0 ? (
           <Card style={{ marginBottom: 16 }}>
             <CardContent style={{ padding: 0 }}>
               <View
@@ -219,14 +159,18 @@ export default function ManageBillsScreen() {
                     ]}
                   >
                     <View>
-                      <Text style={styles.itemTitle}>{b.merchant}</Text>
-                      <Text style={styles.muted}>{b.frequency}</Text>
+                      <Text style={styles.itemTitle}>{b.name}</Text>
+                      <Text style={styles.muted}>
+                        {b.amount_strategy ?? "monthly"}
+                      </Text>
                     </View>
                     <View style={styles.row}>
-                      <Text style={[styles.value]}>${b.amount.toFixed(2)}</Text>
+                      <Text style={styles.value}>
+                        ${(b.amount ?? 0).toFixed(2)}
+                      </Text>
                       <Pressable
-                        onPress={() => removeBill(b.id)}
-                        style={[styles.iconBtn]}
+                        onPress={() => handleDeleteBill(b.id)}
+                        style={styles.iconBtn}
                       >
                         <Trash2 size={16} color="#DC2626" />
                       </Pressable>
@@ -245,6 +189,14 @@ export default function ManageBillsScreen() {
               ))}
             </CardContent>
           </Card>
+        ) : (
+          <Card style={{ marginBottom: 16 }}>
+            <CardContent>
+              <Text style={[styles.muted, { textAlign: "center" }]}>
+                No bills yet — add one below
+              </Text>
+            </CardContent>
+          </Card>
         )}
 
         {/* Add a manual bill */}
@@ -256,9 +208,9 @@ export default function ManageBillsScreen() {
             <View style={{ gap: 12 }}>
               <TextInput
                 placeholder="Bill Name"
-                value={newBill.merchant}
+                value={newBill.name}
                 onChangeText={(t) =>
-                  setNewBill((prev) => ({ ...prev, merchant: t }))
+                  setNewBill((prev) => ({ ...prev, name: t }))
                 }
                 style={styles.input}
               />
@@ -271,19 +223,12 @@ export default function ManageBillsScreen() {
                 }
                 style={styles.input}
               />
-              {/* Simple frequency cycler */}
               <Pressable
                 onPress={() =>
                   setNewBill((prev) => ({
                     ...prev,
                     frequency:
-                      prev.frequency === "monthly"
-                        ? "weekly"
-                        : prev.frequency === "weekly"
-                        ? "biweekly"
-                        : prev.frequency === "biweekly"
-                        ? "yearly"
-                        : "monthly",
+                      prev.frequency === "monthly" ? "yearly" : "monthly",
                   }))
                 }
                 style={[styles.buttonSecondary, { alignSelf: "flex-start" }]}
@@ -293,7 +238,7 @@ export default function ManageBillsScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={addBill}
+                onPress={handleAddBill}
                 style={[styles.buttonPrimary, { alignSelf: "stretch" }]}
               >
                 <Plus size={16} color="#fff" />
@@ -304,13 +249,6 @@ export default function ManageBillsScreen() {
             </View>
           </CardContent>
         </Card>
-
-        {/* Recent transactions to flag */}
-        <TransactionTable
-          title="Recent Transactions"
-          data={transactionTableData}
-          headerIcon={<Receipt size={16} color="#1D4ED8" />}
-        />
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -331,7 +269,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
   },
-  backBtn: { padding: 8, borderRadius: 20 },
+  backBtn: { padding: 8, borderRadius: glass.radius },
   title: { fontSize: 18, fontWeight: "700", color: "#111827" },
   subtle: { fontSize: 12, color: "#6B7280" },
   scroll: { padding: 16 },
@@ -355,14 +293,14 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 2,
     borderColor: "#E5E7EB",
-    borderRadius: 20,
+    borderRadius: glass.radius,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
   },
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    borderRadius: 24,
+    borderRadius: glass.radiusLarge,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
@@ -372,7 +310,7 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     borderWidth: 2,
     borderColor: "#E5E7EB",
-    borderRadius: 20,
+    borderRadius: glass.radius,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
@@ -380,7 +318,7 @@ const styles = StyleSheet.create({
   iconBtn: {
     marginLeft: 8,
     padding: 8,
-    borderRadius: 20,
+    borderRadius: glass.radius,
     backgroundColor: "#FEF2F2",
   },
   pillInfo: {

@@ -13,6 +13,7 @@ import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
 import { Card, CardContent } from "../components/ui/Card";
 import { typography, spacing, borderRadius, colors } from "../styles/common";
+import { glass } from "../styles/theme";
 
 export default function PaydayExplainerScreen() {
   const router = useRouter();
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  backBtn: { padding: spacing.sm, borderRadius: borderRadius.md },
+  backBtn: { padding: spacing.sm, borderRadius: glass.radius },
   title: typography.subtitle,
   subtle: typography.caption,
   scroll: { padding: spacing.lg },
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     backgroundColor: "#2563EB",
-    borderRadius: borderRadius.lg,
+    borderRadius: glass.radiusLarge,
     paddingVertical: spacing.md,
     alignItems: "center",
     justifyContent: "center",

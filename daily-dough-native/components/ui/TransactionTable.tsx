@@ -1,10 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, ViewStyle } from "react-native";
-import { Card, CardContent } from "./Card";
 import { Badge } from "./Badge";
-import { Separator } from "./Separator";
 import { SyncStatus } from "../SyncStatus.native";
-import { typography, spacing, colors, borderRadius } from "../../styles/common";
+import { glass, glassColors } from "../../styles/theme";
+import { typography, spacing, borderRadius } from "../../styles/common";
 
 export interface TransactionTableItem {
   id: string;
@@ -52,16 +51,12 @@ export function TransactionTable({
   style,
 }: TransactionTableProps) {
   const getAmountColor = (item: TransactionTableItem) => {
-    // Priority order: ignored > bill > amount-based
-    if (item.tag === "ignored") return "#6B7280"; // Gray for ignored transactions
-    if (item.tag === "bill") return "#16A34A"; // Green for bills
-
-    // For regular transactions, use amount to determine color
+    if (item.tag === "ignored") return glassColors.textMuted;
+    if (item.tag === "bill") return glassColors.success;
     if (item.amount !== undefined) {
-      return item.amount < 0 ? "#16A34A" : "#DC2626"; // Green for income, red for expenses
+      return item.amount < 0 ? glassColors.success : glassColors.danger;
     }
-
-    return "#DC2626"; // Default to red for spending
+    return glassColors.danger;
   };
 
   const formatAmount = (amount: number, tag?: string) => {
@@ -93,194 +88,207 @@ export function TransactionTable({
     } catch (error) {
       console.warn(
         `Date parsing error in TransactionTable: ${dateString}`,
-        error
+        error,
       );
       return "Invalid Date";
     }
   };
 
   return (
-    <Card style={{ marginBottom: spacing.lg, ...style }}>
-      <CardContent style={{ padding: 0 }}>
-        {/* Header */}
-        <View
-          style={{
-            padding: spacing.xxl,
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: colors.border,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.sm,
-          }}
-        >
-          {headerIcon && (
-            <View style={[styles.circle, { backgroundColor: "#DBEAFE" }]}>
-              {headerIcon}
-            </View>
-          )}
-          <Text style={typography.heading}>{title}</Text>
-        </View>
-
-        {/* Transaction Items */}
-        {data.length === 0 ? (
-          <View style={{ padding: spacing.xxl, alignItems: "center" }}>
-            <Text style={typography.caption}>No transactions to show</Text>
+    <View style={[styles.glassContainer, style]}>
+      {/* Header */}
+      <View style={styles.header}>
+        {headerIcon && (
+          <View
+            style={[
+              styles.circle,
+              { backgroundColor: "rgba(14,165,233,0.10)" },
+            ]}
+          >
+            {headerIcon}
           </View>
-        ) : (
-          data.map((item, i) => (
-            <View key={item.id}>
-              <Pressable
-                onPress={item.onPress}
-                style={[
-                  styles.rowBetween,
-                  {
-                    paddingHorizontal: spacing.xxl,
-                    paddingVertical: spacing.lg,
-                    opacity: item.onPress ? 1 : 0.9,
-                  },
-                ]}
-                disabled={!item.onPress}
-              >
-                <View style={styles.leftContent}>
-                  {/* Render emoji logo for account tables OR icon for transaction tables */}
-                  {item.emoji ? (
-                    <View style={styles.emojiLogo}>
-                      <Text style={{ fontSize: 16 }}>{item.emoji}</Text>
-                    </View>
-                  ) : (
-                    <View
-                      style={[
-                        styles.circle,
-                        {
-                          backgroundColor:
-                            item.iconBackgroundColor || "#F3F4F6",
-                        },
-                      ]}
-                    >
-                      {item.icon}
-                    </View>
-                  )}
+        )}
+        <Text style={styles.heading}>{title}</Text>
+      </View>
 
-                  <View style={styles.textContent}>
-                    <View style={styles.topRow}>
-                      <Text
-                        style={[typography.bodyMedium, styles.merchantText]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
+      {/* Transaction Items */}
+      {data.length === 0 ? (
+        <View style={{ padding: spacing.xxl, alignItems: "center" }}>
+          <Text style={typography.caption}>No transactions to show</Text>
+        </View>
+      ) : (
+        data.map((item, i) => (
+          <View key={item.id}>
+            <Pressable
+              onPress={item.onPress}
+              style={[
+                styles.rowBetween,
+                {
+                  paddingHorizontal: spacing.xxl,
+                  paddingVertical: spacing.lg,
+                  opacity: item.onPress ? 1 : 0.9,
+                },
+              ]}
+              disabled={!item.onPress}
+            >
+              <View style={styles.leftContent}>
+                {/* Render emoji logo for account tables OR icon for transaction tables */}
+                {item.emoji ? (
+                  <View style={styles.emojiLogo}>
+                    <Text style={{ fontSize: 16 }}>{item.emoji}</Text>
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.circle,
+                      {
+                        backgroundColor: item.iconBackgroundColor || "#F3F4F6",
+                      },
+                    ]}
+                  >
+                    {item.icon}
+                  </View>
+                )}
+
+                <View style={styles.textContent}>
+                  <View style={styles.topRow}>
+                    <Text
+                      style={[typography.bodyMedium, styles.merchantText]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.merchant}
+                    </Text>
+                    {item.badge && (
+                      <Badge
+                        variant={item.badge.variant || "secondary"}
+                        style={{ marginLeft: spacing.xs, flexShrink: 0 }}
                       >
-                        {item.merchant}
-                      </Text>
-                      {item.badge && (
-                        <Badge
-                          variant={item.badge.variant || "secondary"}
-                          style={{ marginLeft: spacing.xs, flexShrink: 0 }}
+                        {item.badge.text}
+                      </Badge>
+                    )}
+                  </View>
+                  <View style={styles.bottomRow}>
+                    {/* For account tables, show provider • balance */}
+                    {item.provider && item.balance !== undefined ? (
+                      <>
+                        <Text style={typography.caption}>{item.provider}</Text>
+                        <Text style={[typography.caption, { marginLeft: 4 }]}>
+                          •
+                        </Text>
+                        <Text
+                          style={[
+                            typography.caption,
+                            {
+                              fontWeight: "600",
+                              color: item.balance >= 0 ? "#16A34A" : "#DC2626",
+                            },
+                          ]}
                         >
-                          {item.badge.text}
-                        </Badge>
-                      )}
-                    </View>
-                    <View style={styles.bottomRow}>
-                      {/* For account tables, show provider • balance */}
-                      {item.provider && item.balance !== undefined ? (
-                        <>
-                          <Text style={typography.caption}>
-                            {item.provider}
-                          </Text>
-                          <Text style={[typography.caption, { marginLeft: 4 }]}>
-                            •
-                          </Text>
+                          ${item.balance.toLocaleString()}
+                        </Text>
+                      </>
+                    ) : (
+                      /* For transaction tables, show date and subtitle */
+                      <>
+                        <Text style={typography.caption}>
+                          {formatDate(item.date)}
+                        </Text>
+                        {item.subtitle && (
                           <Text
                             style={[
                               typography.caption,
-                              {
-                                fontWeight: "600",
-                                color:
-                                  item.balance >= 0 ? "#16A34A" : "#DC2626",
-                              },
+                              { marginLeft: spacing.sm },
                             ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
                           >
-                            ${item.balance.toLocaleString()}
+                            • {item.subtitle}
                           </Text>
-                        </>
-                      ) : (
-                        /* For transaction tables, show date and subtitle */
-                        <>
-                          <Text style={typography.caption}>
-                            {formatDate(item.date)}
-                          </Text>
-                          {item.subtitle && (
-                            <Text
-                              style={[
-                                typography.caption,
-                                { marginLeft: spacing.sm },
-                              ]}
-                              numberOfLines={1}
-                              ellipsizeMode="tail"
-                            >
-                              • {item.subtitle}
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </View>
+                        )}
+                      </>
+                    )}
                   </View>
                 </View>
+              </View>
 
-                {/* Right side: Amount OR SyncStatus */}
-                <View style={styles.row}>
-                  {item.syncStatus ? (
-                    /* For account tables, show sync status */
-                    <SyncStatus
-                      status={item.syncStatus.status}
-                      lastSynced={item.syncStatus.lastSynced}
-                    />
-                  ) : (
-                    /* For transaction tables, show amount */
-                    item.amount !== undefined && (
-                      <Text
-                        style={[
-                          typography.value,
-                          { color: getAmountColor(item) },
-                        ]}
-                      >
-                        {formatAmount(item.amount, item.tag)}
-                      </Text>
-                    )
-                  )}
-                  {item.actionButton && (
-                    <Pressable
-                      onPress={item.actionButton.onPress}
-                      style={{
-                        marginLeft: spacing.sm,
-                        padding: spacing.sm,
-                        borderRadius: borderRadius.pill,
-                        backgroundColor:
-                          item.actionButton.backgroundColor || "#FEF2F2",
-                      }}
+              {/* Right side: Amount OR SyncStatus */}
+              <View style={styles.row}>
+                {item.syncStatus ? (
+                  /* For account tables, show sync status */
+                  <SyncStatus
+                    status={item.syncStatus.status}
+                    lastSynced={item.syncStatus.lastSynced}
+                  />
+                ) : (
+                  /* For transaction tables, show amount */
+                  item.amount !== undefined && (
+                    <Text
+                      style={[
+                        typography.value,
+                        { color: getAmountColor(item) },
+                      ]}
                     >
-                      {item.actionButton.icon}
-                    </Pressable>
-                  )}
-                </View>
-              </Pressable>
-              {i < data.length - 1 && (
-                <View
-                  style={{
-                    height: StyleSheet.hairlineWidth,
-                    backgroundColor: colors.border,
-                    marginHorizontal: spacing.xxl,
-                  }}
-                />
-              )}
-            </View>
-          ))
-        )}
-      </CardContent>
-    </Card>
+                      {formatAmount(item.amount, item.tag)}
+                    </Text>
+                  )
+                )}
+                {item.actionButton && (
+                  <Pressable
+                    onPress={item.actionButton.onPress}
+                    style={{
+                      marginLeft: spacing.sm,
+                      padding: spacing.sm,
+                      borderRadius: borderRadius.pill,
+                      backgroundColor:
+                        item.actionButton.backgroundColor || "#FEF2F2",
+                    }}
+                  >
+                    {item.actionButton.icon}
+                  </Pressable>
+                )}
+              </View>
+            </Pressable>
+            {i < data.length - 1 && <View style={styles.separator} />}
+          </View>
+        ))
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  glassContainer: {
+    borderRadius: glass.radius,
+    backgroundColor: "rgba(255,255,255,0.55)",
+    borderWidth: glass.borderWidth,
+    borderColor: glass.borderColor,
+    overflow: "hidden",
+    marginBottom: spacing.lg,
+    shadowColor: glass.shadow.color,
+    shadowOffset: glass.shadow.offset,
+    shadowRadius: glass.shadow.radius,
+    shadowOpacity: glass.shadow.opacity,
+    elevation: 4,
+  },
+  header: {
+    padding: spacing.xxl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: glassColors.separator,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  heading: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: glassColors.text,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: glassColors.separator,
+    marginHorizontal: spacing.xxl,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -327,7 +335,7 @@ const styles = StyleSheet.create({
   emojiLogo: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.lg,
+    borderRadius: glass.radius,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
