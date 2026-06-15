@@ -46,73 +46,94 @@ function validatePlaidEnv(
   return env as "sandbox" | "development" | "production";
 }
 
-// Validate all required environment variables on module load
-function loadConfig(): Config {
-  try {
-    console.log("🔧 Validating environment configuration...");
+let _cached: Config | null = null;
 
-    const webhookSecret = process.env.PLAID_WEBHOOK_SECRET?.trim();
+function getConfig(): Config {
+  if (_cached) return _cached;
 
-    const config: Config = {
-      plaid: {
-        clientId: validateEnvVar(
-          "PLAID_CLIENT_ID",
-          process.env.PLAID_CLIENT_ID
-        ),
-        secret: validateEnvVar("PLAID_SECRET", process.env.PLAID_SECRET),
-        env: validatePlaidEnv(
-          validateEnvVar("PLAID_ENV", process.env.PLAID_ENV)
-        ),
-      },
-      database: {
-        url: process.env.DATABASE_URL || "file:./prisma/dev.db", // Fallback to SQLite for development
-      },
-      encryption: {
-        key: validateEnvVar("ENCRYPTION_KEY", process.env.ENCRYPTION_KEY),
-      },
-      webhook: {
-        secret: webhookSecret,
-        verificationEnabled: !!webhookSecret,
-      },
+  // During next build, env vars may not be available — return safe defaults
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return {
+      plaid: { clientId: "", secret: "", env: "sandbox" },
+      database: { url: "file:./prisma/dev.db" },
+      encryption: { key: "" },
+      webhook: { secret: undefined, verificationEnabled: false },
     };
-
-    console.log(`✅ Environment validated successfully`);
-    console.log(`   - Plaid environment: ${config.plaid.env}`);
-    console.log(
-      `   - Database configured: ${
-        config.database.url.startsWith("file:") ? "SQLite (local)" :
-        config.database.url.includes("localhost") ? "local" : "remote"
-      }`
-    );
-    console.log(`   - Encryption key: configured`);
-    console.log(
-      `   - Webhook verification: ${
-        config.webhook.verificationEnabled ? "enabled" : "disabled"
-      }`
-    );
-
-    return config;
-  } catch (error) {
-    console.error("\n🚨 CONFIGURATION ERROR - SERVER CANNOT START\n");
-    console.error(
-      error instanceof Error ? error.message : "Unknown configuration error"
-    );
-    console.error(
-      "\nPlease fix the environment configuration and restart the server.\n"
-    );
-
-    // Exit the process to fail fast
-    process.exit(1);
   }
+
+  console.log("🔧 Validating environment configuration...");
+
+  const webhookSecret = process.env.PLAID_WEBHOOK_SECRET?.trim();
+
+  const config: Config = {
+    plaid: {
+      clientId: validateEnvVar(
+        "PLAID_CLIENT_ID",
+        process.env.PLAID_CLIENT_ID
+      ),
+      secret: validateEnvVar("PLAID_SECRET", process.env.PLAID_SECRET),
+      env: validatePlaidEnv(
+        validateEnvVar("PLAID_ENV", process.env.PLAID_ENV)
+      ),
+    },
+    database: {
+      url: process.env.DATABASE_URL || "file:./prisma/dev.db",
+    },
+    encryption: {
+      key: validateEnvVar("ENCRYPTION_KEY", process.env.ENCRYPTION_KEY),
+    },
+    webhook: {
+      secret: webhookSecret,
+      verificationEnabled: !!webhookSecret,
+    },
+  };
+
+  console.log(`✅ Environment validated successfully`);
+  console.log(`   - Plaid environment: ${config.plaid.env}`);
+  console.log(
+    `   - Database configured: ${
+      config.database.url.startsWith("file:") ? "SQLite (local)" :
+      config.database.url.includes("localhost") ? "local" : "remote"
+    }`
+  );
+  console.log(`   - Encryption key: configured`);
+  console.log(
+    `   - Webhook verification: ${
+      config.webhook.verificationEnabled ? "enabled" : "disabled"
+    }`
+  );
+
+  _cached = config;
+  return config;
 }
 
-// Load and export the validated configuration
-export const config = loadConfig();
+// Lazy-loaded config — validated on first access at runtime, not at import time
+export const config: Config = new Proxy({} as Config, {
+  get(_, prop: string) {
+    return getConfig()[prop as keyof Config];
+  },
+});
 
-// Re-export for convenience
-export const {
-  plaid: plaidConfig,
-  database: databaseConfig,
-  encryption: encryptionConfig,
-  webhook: webhookConfig,
-} = config;
+export const plaidConfig = new Proxy({} as Config["plaid"], {
+  get(_, prop: string) {
+    return getConfig().plaid[prop as keyof Config["plaid"]];
+  },
+});
+
+export const databaseConfig = new Proxy({} as Config["database"], {
+  get(_, prop: string) {
+    return getConfig().database[prop as keyof Config["database"]];
+  },
+});
+
+export const encryptionConfig = new Proxy({} as Config["encryption"], {
+  get(_, prop: string) {
+    return getConfig().encryption[prop as keyof Config["encryption"]];
+  },
+});
+
+export const webhookConfig = new Proxy({} as Config["webhook"], {
+  get(_, prop: string) {
+    return getConfig().webhook[prop as keyof Config["webhook"]];
+  },
+});
