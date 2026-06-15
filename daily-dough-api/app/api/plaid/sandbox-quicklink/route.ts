@@ -102,17 +102,19 @@ export async function GET() {
       accounts_count: accounts.length,
       accounts: accounts.map((a) => ({ ...a, imported: false })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Sandbox quicklink failed:", error);
 
-    if (error.response?.data) {
-      console.error("📋 Plaid API Error Details:", error.response.data);
+    const plaidError = error as { response?: { data?: unknown } };
+    if (plaidError.response?.data) {
+      console.error("📋 Plaid API Error Details:", plaidError.response.data);
     }
 
+    const details = plaidError.response?.data || (error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Sandbox quicklink failed",
-        details: error.response?.data || error.message,
+        details,
       },
       { status: 500 }
     );

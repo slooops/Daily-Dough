@@ -105,17 +105,19 @@ export async function POST(request: Request) {
       accounts,
       message: "Token exchange successful",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Token exchange failed:", error);
 
-    if (error.response?.data) {
-      console.error("📋 Plaid API Error Details:", error.response.data);
+    const plaidError = error as { response?: { data?: unknown } };
+    if (plaidError.response?.data) {
+      console.error("📋 Plaid API Error Details:", plaidError.response.data);
     }
 
+    const details = plaidError.response?.data || (error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Token exchange failed",
-        details: error.response?.data || error.message,
+        details,
       },
       { status: 500 }
     );

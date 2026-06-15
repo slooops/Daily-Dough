@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     await userProfileRepo.upsert(userId, {
       grossPaycheck: profile.grossPaycheck,
-      payCadence: profile.payCadence as any,
+      payCadence: profile.payCadence as "weekly" | "biweekly" | "monthly" | "semimonthly",
       monthlyRent: profile.monthlyRent,
       periodStart: fmt(newStart),
       periodEnd: fmt(newEnd),
@@ -114,10 +114,11 @@ export async function POST(request: NextRequest) {
         periodEnd: fmt(newEnd),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ End period failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to end period", details: error.message },
+      { success: false, error: "Failed to end period", details: message },
       { status: 500 },
     );
   }

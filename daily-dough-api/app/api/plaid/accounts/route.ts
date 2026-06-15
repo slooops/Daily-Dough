@@ -87,17 +87,19 @@ export async function GET(request: Request) {
       institution_id: item.institution_id,
       fetched_at: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Failed to fetch accounts:", error);
 
-    if (error.response?.data) {
-      console.error("📋 Plaid API Error Details:", error.response.data);
+    const plaidError = error as { response?: { data?: unknown } };
+    if (plaidError.response?.data) {
+      console.error("📋 Plaid API Error Details:", plaidError.response.data);
     }
 
+    const details = plaidError.response?.data || (error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Failed to fetch accounts",
-        details: error.response?.data || error.message,
+        details,
       },
       { status: 500 }
     );
@@ -134,10 +136,11 @@ export async function PATCH(request: Request) {
       success: true,
       account: mapAccountToResponse(updated),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to update account:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to update account", details: error.message },
+      { error: "Failed to update account", details: message },
       { status: 500 }
     );
   }
@@ -208,10 +211,11 @@ export async function DELETE(request: Request) {
       success: true,
       message: "All accounts disconnected",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Failed to delete account(s):", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to delete account(s)", details: error.message },
+      { error: "Failed to delete account(s)", details: message },
       { status: 500 },
     );
   }
@@ -220,7 +224,7 @@ export async function DELETE(request: Request) {
 /**
  * Map database Account to clean API response format
  */
-function mapAccountToResponse(account: any) {
+function mapAccountToResponse(account: Record<string, unknown>) {
   const balances =
     typeof account.balances === "string"
       ? JSON.parse(account.balances)
@@ -231,7 +235,7 @@ function mapAccountToResponse(account: any) {
     name: account.name,
     type: account.type,
     subtype: account.subtype,
-    mask: account.mask || account.account_id.slice(-4),
+    mask: account.mask || String(account.account_id).slice(-4),
     imported: account.imported ?? true,
     balances: {
       current: balances?.current || 0,

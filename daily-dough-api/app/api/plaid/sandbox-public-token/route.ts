@@ -31,13 +31,15 @@ export async function GET() {
       institution_id: "ins_109508",
       note: "This simulates what Plaid Link would return",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Sandbox public token creation failed:", error);
 
+    const plaidError = error as { response?: { data?: unknown } };
+    const details = plaidError.response?.data || (error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Sandbox public token creation failed",
-        details: error.response?.data || error.message,
+        details,
       },
       { status: 500 }
     );

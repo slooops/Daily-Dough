@@ -57,10 +57,11 @@ export async function POST(request: NextRequest) {
 
     const bill = await billsRepo.add({ userId, name, amount, frequency });
     return NextResponse.json({ success: true, bill });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Add bill failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to add bill", details: error.message },
+      { success: false, error: "Failed to add bill", details: message },
       { status: 500 },
     );
   }
@@ -92,13 +93,14 @@ export async function DELETE(request: NextRequest) {
 
     await billsRepo.remove(id);
     return NextResponse.json({ success: true, deleted: id });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Delete bill failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
       {
         success: false,
         error: "Failed to delete bill",
-        details: error.message,
+        details: message,
       },
       { status: 500 },
     );

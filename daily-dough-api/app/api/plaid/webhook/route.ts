@@ -125,8 +125,9 @@ export async function POST(request: NextRequest) {
  * Handle TRANSACTIONS webhooks with background sync (Task 10)
  * Updated to use database repository layer
  */
-async function handleTransactionsWebhook(body: any) {
-  const { webhook_code, item_id } = body;
+async function handleTransactionsWebhook(body: Record<string, unknown>) {
+  const webhook_code = body.webhook_code as string;
+  const item_id = body.item_id as string;
 
   console.log(
     `💳 Processing transactions webhook - ${webhook_code} for item: ${item_id}`
@@ -173,12 +174,12 @@ async function handleTransactionsWebhook(body: any) {
  * Perform background transaction sync using database repository layer
  * Same logic as refresh endpoint but triggered by webhook
  */
-async function performBackgroundSync(item: any) {
+async function performBackgroundSync(item: { item_id: string; access_token_enc: string }) {
   try {
     console.log(`🔄 Starting background sync for item: ${item.item_id}`);
 
     const accessToken = decrypt(item.access_token_enc);
-    let syncState = await syncStateRepo.get(item.item_id);
+    const syncState = await syncStateRepo.get(item.item_id);
     let cursor = syncState?.cursor || "";
     let hasMore = true;
     let totalAdded = 0;
@@ -279,7 +280,7 @@ function formatPlaidTransactionForDb(
 /**
  * Handle ITEM webhooks
  */
-async function handleItemWebhook(body: any) {
+async function handleItemWebhook(body: Record<string, unknown>) {
   const { webhook_code, item_id, error } = body;
 
   console.log(`🏦 Item webhook - ${webhook_code} for item: ${item_id}`);
@@ -308,7 +309,7 @@ async function handleItemWebhook(body: any) {
 /**
  * Handle AUTH webhooks
  */
-async function handleAuthWebhook(body: any) {
+async function handleAuthWebhook(body: Record<string, unknown>) {
   const { webhook_code, item_id } = body;
 
   console.log(`🔐 Auth webhook - ${webhook_code} for item: ${item_id}`);

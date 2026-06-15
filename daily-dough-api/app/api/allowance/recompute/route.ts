@@ -27,10 +27,11 @@ export async function POST(request: NextRequest) {
       today: result.today,
       streak: result.streak,
     });
-  } catch (error: any) {
-    const status = error.message?.includes("profile not found") ? 404 : 500;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const status = message.includes("profile not found") ? 404 : 500;
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: message },
       { status },
     );
   }

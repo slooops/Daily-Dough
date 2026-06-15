@@ -61,10 +61,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, rule });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Add ignore rule failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to add rule", details: error.message },
+      { success: false, error: "Failed to add rule", details: message },
       { status: 500 },
     );
   }
@@ -88,13 +89,14 @@ export async function DELETE(request: NextRequest) {
 
     await ignoredRepo.removeRule(id);
     return NextResponse.json({ success: true, deleted: id });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Delete ignore rule failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
       {
         success: false,
         error: "Failed to delete rule",
-        details: error.message,
+        details: message,
       },
       { status: 500 },
     );

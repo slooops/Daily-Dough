@@ -36,7 +36,7 @@ function validatePlaidEnv(
   env: string
 ): "sandbox" | "development" | "production" {
   const validEnvs = ["sandbox", "development", "production"] as const;
-  if (!validEnvs.includes(env as any)) {
+  if (!(validEnvs as readonly string[]).includes(env)) {
     throw new Error(
       `❌ Invalid PLAID_ENV: "${env}"\n` +
         `Must be one of: ${validEnvs.join(", ")}\n` +

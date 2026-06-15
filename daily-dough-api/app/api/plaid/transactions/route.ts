@@ -18,13 +18,10 @@ import { decrypt } from "../../../../lib/crypto";
 import {
   itemsRepo,
   syncStateRepo,
-  accountsRepo,
   transactionsRepo,
-  db,
 } from "../../../../server/repo";
 import {
   TransactionsSyncRequest,
-  RemovedTransaction,
   Transaction as PlaidTransaction,
 } from "plaid";
 import {
@@ -33,16 +30,8 @@ import {
   restorePrismaErrors,
 } from "../../../../utils/errorUtils";
 
-interface PlaidSyncResponse {
-  added: PlaidTransaction[];
-  modified: PlaidTransaction[];
-  removed: RemovedTransaction[];
-  next_cursor: string;
-  has_more: boolean;
-}
-
 // In-memory sync lock to prevent concurrent syncs from clobbering SQLite
-const syncLocks = new Map<string, Promise<any>>();
+const syncLocks = new Map<string, Promise<unknown>>();
 
 export async function GET(request: NextRequest) {
   console.log("🔄 STARTING transactions API call...");
@@ -203,7 +192,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current sync state
-    let syncState = await syncStateRepo.get(item.item_id);
+    const syncState = await syncStateRepo.get(item.item_id);
 
     // Perform idempotent sync with lock to prevent concurrent SQLite writes
     console.log("🔄 Starting idempotent transaction sync...");
@@ -438,7 +427,7 @@ function formatPlaidTransactionForDb(
   item_id: string
 ): transactionsRepo.TransactionInput {
   // Use personal_finance_category (new API) over deprecated category array
-  const pfc = (plaidTx as any).personal_finance_category;
+  const pfc = (plaidTx as unknown as Record<string, { primary?: string; detailed?: string }>).personal_finance_category;
   const categoryPrimary = pfc?.primary ?? plaidTx.category?.[0] ?? undefined;
   const categorySecondary = pfc?.detailed ?? plaidTx.category?.[1] ?? undefined;
 
@@ -462,7 +451,7 @@ function formatPlaidTransactionForDb(
 /**
  * Convert database transaction to API format
  */
-function formatTransactionForApi(dbTx: any) {
+function formatTransactionForApi(dbTx: Record<string, unknown>) {
   return {
     transaction_id: dbTx.transaction_id,
     account_id: dbTx.account_id,

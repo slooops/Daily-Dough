@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       if (body?.userId) {
         userId = body.userId;
       }
-    } catch (e) {
+    } catch {
       // If no body or invalid JSON, use default
     }
 
@@ -56,18 +56,19 @@ export async function POST(request: Request) {
       expiration: resp.data.expiration,
       request_id: resp.data.request_id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error creating link token:", error);
 
-    // Log more details for debugging
-    if (error.response?.data) {
-      console.error("📋 Plaid API Error Details:", error.response.data);
+    const plaidError = error as { response?: { data?: unknown } };
+    if (plaidError.response?.data) {
+      console.error("📋 Plaid API Error Details:", plaidError.response.data);
     }
 
+    const details = plaidError.response?.data || (error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Failed to create link token",
-        details: error.response?.data || error.message,
+        details,
       },
       { status: 500 }
     );

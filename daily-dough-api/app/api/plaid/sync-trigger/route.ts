@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { plaid } from "@/lib/plaid";
 import { itemsRepo } from "@/server/repo";
 import { decrypt } from "@/lib/crypto";
+import { SandboxItemFireWebhookRequestWebhookCodeEnum } from "plaid";
 
 /**
  * POST /api/plaid/sync-trigger
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     try {
       await plaid.sandboxItemFireWebhook({
         access_token: accessToken,
-        webhook_code: "DEFAULT_UPDATE" as any,
+        webhook_code: SandboxItemFireWebhookRequestWebhookCodeEnum.DefaultUpdate,
       });
       console.log("🔥 Fired sandbox webhook for transaction sync");
     } catch (err) {
@@ -35,10 +36,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Sync trigger failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: message },
       { status: 500 },
     );
   }

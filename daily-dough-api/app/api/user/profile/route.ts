@@ -100,13 +100,14 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Profile update failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
       {
         success: false,
         error: "Failed to update profile",
-        details: error.message,
+        details: message,
       },
       { status: 500 },
     );

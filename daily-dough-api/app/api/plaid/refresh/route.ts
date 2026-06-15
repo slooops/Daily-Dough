@@ -17,7 +17,6 @@ import {
   itemsRepo,
   syncStateRepo,
   transactionsRepo,
-  db,
 } from "../../../../server/repo";
 import {
   TransactionsSyncRequest,
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
     const accessToken = decrypt(item.access_token_enc);
 
     // Get current sync state
-    let syncState = await syncStateRepo.get(item.item_id);
+    const syncState = await syncStateRepo.get(item.item_id);
     let cursor = syncState?.cursor || "";
     let hasMore = true;
     let totalAdded = 0;

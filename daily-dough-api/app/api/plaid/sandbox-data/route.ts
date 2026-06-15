@@ -57,13 +57,15 @@ export async function GET() {
         })),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Sandbox data creation failed:", error);
 
+    const plaidError = error as { response?: { data?: unknown } };
+    const details = plaidError.response?.data || (error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Failed to create sandbox data",
-        details: error.response?.data || error.message,
+        details,
       },
       { status: 500 }
     );
