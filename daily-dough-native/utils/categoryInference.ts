@@ -1,85 +1,91 @@
 /**
- * Infer a transaction category from merchant name when Plaid category is missing/generic.
+ * Map Plaid personal_finance_category primary values to display names.
+ * Falls back to merchant-name heuristics when category is missing.
  */
+
+const PLAID_CATEGORY_MAP: Record<string, string> = {
+  INCOME: "Income",
+  TRANSFER_IN: "Income",
+  TRANSFER_OUT: "Transfer",
+  LOAN_PAYMENTS: "Bills",
+  BANK_FEES: "Financial",
+  ENTERTAINMENT: "Entertainment",
+  FOOD_AND_DRINK: "Food",
+  GENERAL_MERCHANDISE: "Shopping",
+  HOME_IMPROVEMENT: "Shopping",
+  MEDICAL: "Healthcare",
+  PERSONAL_CARE: "Personal Care",
+  GENERAL_SERVICES: "Services",
+  GOVERNMENT_AND_NON_PROFIT: "Services",
+  TRANSPORTATION: "Transportation",
+  TRAVEL: "Travel",
+  RENT_AND_UTILITIES: "Bills",
+  RECREATION: "Recreation",
+};
+
 export const inferCategoryFromMerchant = (
   merchant: string,
   originalCategory: string,
 ): string => {
-  if (
-    originalCategory &&
-    originalCategory !== "Other" &&
-    originalCategory !== ""
-  ) {
-    return originalCategory;
+  // If we have a Plaid personal_finance_category, map it to a display name
+  if (originalCategory && typeof originalCategory === "string") {
+    const mapped = PLAID_CATEGORY_MAP[originalCategory];
+    if (mapped) return mapped;
+
+    // If it's already a nice display name (not uppercase/underscore), pass through
+    if (
+      originalCategory !== "Other" &&
+      originalCategory !== "" &&
+      !originalCategory.includes("_")
+    ) {
+      return originalCategory;
+    }
   }
 
+  // Fall back to merchant-name heuristics
   const m = merchant.toLowerCase();
 
-  // Income
   if (
-    m.includes("ach electronic credit") ||
-    m.includes("gusto pay") ||
     m.includes("payroll") ||
     m.includes("salary") ||
     m.includes("deposit") ||
     m.includes("direct dep") ||
-    m.includes("wage")
+    m.includes("gusto pay")
   )
     return "Income";
 
-  // Financial services
-  if (
-    m.includes("cd deposit") ||
-    m.includes("interest") ||
-    m.includes("bank fee") ||
-    m.includes("overdraft") ||
-    m.includes("atm fee")
-  )
+  if (m.includes("interest") || m.includes("bank fee") || m.includes("atm fee"))
     return "Financial";
 
-  // Recreation/Fitness
   if (
     m.includes("climbing") ||
     m.includes("gym") ||
     m.includes("fitness") ||
     m.includes("yoga") ||
-    m.includes("crossfit") ||
-    m.includes("pilates") ||
-    m.includes("sports") ||
-    m.includes("tennis") ||
-    m.includes("golf") ||
-    m.includes("swim") ||
-    m.includes("martial arts")
+    m.includes("crossfit")
   )
     return "Recreation";
 
-  // Grocery
   if (
     m.includes("grocery") ||
-    m.includes("supermarket") ||
-    m.includes("safeway") ||
     m.includes("whole foods") ||
     m.includes("trader joe") ||
     m.includes("kroger") ||
-    m.includes("wegmans")
+    m.includes("safeway")
   )
     return "Grocery";
 
-  // Restaurants/Food
   if (
     m.includes("restaurant") ||
     m.includes("coffee") ||
     m.includes("starbucks") ||
     m.includes("mcdonald") ||
     m.includes("pizza") ||
-    m.includes("food") ||
     m.includes("cafe") ||
-    m.includes("diner") ||
-    m.includes("bistro")
+    m.includes("food")
   )
     return "Food";
 
-  // Transportation
   if (
     m.includes("uber") ||
     m.includes("lyft") ||
@@ -87,73 +93,32 @@ export const inferCategoryFromMerchant = (
     m.includes("gas") ||
     m.includes("shell") ||
     m.includes("chevron") ||
-    m.includes("parking") ||
-    m.includes("metro") ||
-    m.includes("transit")
+    m.includes("parking")
   )
     return "Transportation";
 
-  // Travel
   if (
     m.includes("airline") ||
     m.includes("hotel") ||
     m.includes("airbnb") ||
-    m.includes("expedia") ||
-    m.includes("booking") ||
     m.includes("flight")
   )
     return "Travel";
 
-  // Shopping
   if (
     m.includes("amazon") ||
     m.includes("target") ||
     m.includes("walmart") ||
     m.includes("store") ||
-    m.includes("shop") ||
-    m.includes("retail")
+    m.includes("shop")
   )
     return "Shopping";
 
-  // Subscriptions
-  if (
-    m.includes("netflix") ||
-    m.includes("spotify") ||
-    m.includes("subscription") ||
-    m.includes("monthly") ||
-    m.includes("annual")
-  )
+  if (m.includes("netflix") || m.includes("spotify") || m.includes("subscription"))
     return "Subscriptions";
 
-  // Entertainment
-  if (
-    m.includes("movie") ||
-    m.includes("theater") ||
-    m.includes("cinema") ||
-    m.includes("concert") ||
-    m.includes("ticket")
-  )
-    return "Entertainment";
-
-  // Healthcare
-  if (
-    m.includes("pharmacy") ||
-    m.includes("doctor") ||
-    m.includes("medical") ||
-    m.includes("clinic") ||
-    m.includes("hospital")
-  )
+  if (m.includes("pharmacy") || m.includes("doctor") || m.includes("medical"))
     return "Healthcare";
-
-  // Personal Care
-  if (
-    m.includes("salon") ||
-    m.includes("spa") ||
-    m.includes("barber") ||
-    m.includes("beauty") ||
-    m.includes("cosmetic")
-  )
-    return "Personal Care";
 
   return "Other";
 };

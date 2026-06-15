@@ -41,6 +41,9 @@ interface PlaidSyncResponse {
   has_more: boolean;
 }
 
+// In-memory sync lock to prevent concurrent syncs from clobbering SQLite
+const syncLocks = new Map<string, Promise<any>>();
+
 export async function GET(request: NextRequest) {
   console.log("🔄 STARTING transactions API call...");
 
@@ -202,14 +205,29 @@ export async function GET(request: NextRequest) {
     // Get current sync state
     let syncState = await syncStateRepo.get(item.item_id);
 
-    // Perform idempotent sync
+    // Perform idempotent sync with lock to prevent concurrent SQLite writes
     console.log("🔄 Starting idempotent transaction sync...");
 
-    const syncResult = await performIdempotentSync(
-      item.item_id,
-      accessToken,
-      syncState?.cursor
-    );
+    const existingSync = syncLocks.get(item.item_id);
+    let syncResult;
+    if (existingSync) {
+      console.log("⏳ Another sync is in progress, waiting for it...");
+      try { await existingSync; } catch {}
+      // After waiting, just read from DB — the other sync already wrote
+      syncResult = { synced: false, isEmpty: false, finalCursor: syncState?.cursor || "", totalAdded: 0, totalModified: 0, totalRemoved: 0 };
+    } else {
+      const syncPromise = performIdempotentSync(
+        item.item_id,
+        accessToken,
+        syncState?.cursor,
+      );
+      syncLocks.set(item.item_id, syncPromise);
+      try {
+        syncResult = await syncPromise;
+      } finally {
+        syncLocks.delete(item.item_id);
+      }
+    }
 
     // If sync was needed, update sync state
     if (syncResult.synced) {
@@ -232,21 +250,29 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Retrieve transactions for the requested period
+    // Retrieve transactions for the requested period (only from imported accounts)
+    const allTransactions = await transactionsRepo.listByPeriod({
+      userId: userId,
+      startDate: sinceDate,
+      limit: limit,
+      includeRemoved: false,
+    });
     const transactions = await transactionsRepo.listByPeriod({
       userId: userId,
       startDate: sinceDate,
       limit: limit,
-      includeRemoved: false, // Exclude soft-deleted transactions
+      includeRemoved: false,
+      onlyImportedAccounts: true,
     });
 
     // Convert database transactions to API format
     const formattedTransactions = transactions.map(formatTransactionForApi);
 
-    console.log(`📊 Returning ${formattedTransactions.length} transactions`);
+    console.log(`📊 Returning ${formattedTransactions.length} transactions (${allTransactions.length} total, filtered by imported accounts)`);
 
     return NextResponse.json({
       success: true,
+      status: "ok",
       transactions: formattedTransactions,
       count: formattedTransactions.length,
       since: sinceDate,
@@ -348,44 +374,36 @@ async function performIdempotentSync(
         break;
       }
 
-      // Process this page in a database transaction with increased timeout
+      // Process transactions without wrapping in $transaction — SQLite handles
+      // individual writes fine but the interactive transaction proxy causes timeouts.
       const dbStartTime = Date.now();
-      await db.$transaction(
-        async (tx) => {
-          // Convert and upsert transactions
-          if (added.length > 0 || modified.length > 0) {
-            const addedFormatted = added.map((tx) =>
-              formatPlaidTransactionForDb(tx, item_id)
-            );
-            const modifiedFormatted = modified.map((tx) =>
-              formatPlaidTransactionForDb(tx, item_id)
-            );
 
-            const batchResult = await transactionsRepo.upsertBatch({
-              added: addedFormatted,
-              modified: modifiedFormatted,
-            });
+      if (added.length > 0 || modified.length > 0) {
+        const addedFormatted = added.map((tx) =>
+          formatPlaidTransactionForDb(tx, item_id)
+        );
+        const modifiedFormatted = modified.map((tx) =>
+          formatPlaidTransactionForDb(tx, item_id)
+        );
 
-            totalAdded += batchResult.addedCount;
-            totalModified += batchResult.modifiedCount;
-          }
+        const batchResult = await transactionsRepo.upsertBatch({
+          added: addedFormatted,
+          modified: modifiedFormatted,
+        });
 
-          // Handle removed transactions
-          if (removed.length > 0) {
-            const removedIds = removed.map((r) => r.transaction_id);
-            const removedCount = await transactionsRepo.applyRemoved(
-              removedIds
-            );
-            totalRemoved += removedCount;
-          }
-        },
-        {
-          timeout: 15000, // Increase timeout to 15 seconds for large batches
-        }
-      );
+        totalAdded += batchResult.addedCount;
+        totalModified += batchResult.modifiedCount;
+      }
+
+      if (removed.length > 0) {
+        const removedIds = removed.map((r) => r.transaction_id);
+        const removedCount = await transactionsRepo.applyRemoved(removedIds);
+        totalRemoved += removedCount;
+      }
+
       const dbTime = Date.now() - dbStartTime;
       if (dbTime > 1000) {
-        console.log(`⏱️ Database transaction took ${dbTime}ms`);
+        console.log(`⏱️ Database writes took ${dbTime}ms`);
       }
 
       finalCursor = next_cursor;
@@ -419,6 +437,11 @@ function formatPlaidTransactionForDb(
   plaidTx: PlaidTransaction,
   item_id: string
 ): transactionsRepo.TransactionInput {
+  // Use personal_finance_category (new API) over deprecated category array
+  const pfc = (plaidTx as any).personal_finance_category;
+  const categoryPrimary = pfc?.primary ?? plaidTx.category?.[0] ?? undefined;
+  const categorySecondary = pfc?.detailed ?? plaidTx.category?.[1] ?? undefined;
+
   return {
     transaction_id: plaidTx.transaction_id,
     account_id: plaidTx.account_id,
@@ -426,10 +449,10 @@ function formatPlaidTransactionForDb(
     date: plaidTx.date,
     name: plaidTx.name,
     merchant_name: plaidTx.merchant_name ?? undefined,
-    amount: plaidTx.amount, // Keep signed: negative = expense, positive = income
+    amount: plaidTx.amount,
     iso_currency_code: plaidTx.iso_currency_code ?? undefined,
-    category_primary: plaidTx.category?.[0] ?? undefined,
-    category_secondary: plaidTx.category?.[1] ?? undefined,
+    category_primary: categoryPrimary,
+    category_secondary: categorySecondary,
     original_description: plaidTx.original_description ?? undefined,
     pending: plaidTx.pending,
     raw: plaidTx,

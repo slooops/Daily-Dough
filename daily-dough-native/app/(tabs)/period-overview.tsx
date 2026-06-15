@@ -54,6 +54,11 @@ export default function PeriodOverviewScreen() {
           fetchAllowancePeriod(userId),
           fetchPeriodHistory(userId),
         ]);
+        console.log(`📅 Period data: success=${periodData.success}, days=${periodData.days?.length ?? 0}, seed=${JSON.stringify(periodData.seed)}`);
+        if (periodData.days?.length > 0) {
+          console.log(`📅 Sample day [0]:`, JSON.stringify(periodData.days[0]));
+          console.log(`📅 Sample day [last]:`, JSON.stringify(periodData.days[periodData.days.length - 1]));
+        }
         if (periodData.success) {
           setDays(periodData.days ?? []);
           setSeed(periodData.seed ?? null);
@@ -82,16 +87,42 @@ export default function PeriodOverviewScreen() {
   const daysLeft = (seed?.daysInPeriod ?? 0) - days.length;
 
   const dayColor = (d: DayResult) =>
-    d.noSpendDay ? "#3B82F6" : d.withinBudget ? "#34D399" : "#F87171";
+    d.noSpendDay ? "#34D399" : d.withinBudget ? "#3B82F6" : "#F87171";
+
+  // Build full calendar month grid
+  const { monthLabel, calendarDays } = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
+    const label = new Date(year, month).toLocaleString("default", { month: "long", year: "numeric" });
+
+    const dayMap = new Map(days.map((d) => [d.date, d]));
+    const todayStr = now.toISOString().split("T")[0];
+
+    const grid: { day: number | null; data: DayResult | null; isFuture: boolean }[] = [];
+    // Leading blanks for day-of-week alignment
+    for (let i = 0; i < firstDow; i++) {
+      grid.push({ day: null, data: null, isFuture: false });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      grid.push({ day: d, data: dayMap.get(dateStr) ?? null, isFuture: dateStr > todayStr });
+    }
+    return { monthLabel: label, calendarDays: grid };
+  }, [days]);
 
   return (
     <SafeAreaView style={styles.root}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Period Overview</Text>
-        <Text style={styles.subtle}>
-          {seed ? `${days.length} of ${seed.daysInPeriod} days` : "Loading..."}
-        </Text>
+        <View>
+          <Text style={styles.title}>Period Overview</Text>
+          <Text style={styles.subtle}>
+            {seed ? `${days.length} of ${seed.daysInPeriod} days` : "Loading..."}
+          </Text>
+        </View>
       </View>
 
       {isLoading ? (
@@ -140,32 +171,68 @@ export default function PeriodOverviewScreen() {
                 </View>
                 <Text style={typography.heading}>Daily Spending Heatmap</Text>
               </View>
+              <Text style={[typography.caption, { textAlign: "center", marginBottom: spacing.sm }]}>
+                {monthLabel}
+              </Text>
               <View style={styles.gridContainer}>
+                {/* Day-of-week headers */}
                 <View style={styles.grid7}>
-                  {days.map((d) => (
-                    <Pressable
-                      key={d.date}
-                      style={[styles.square, { backgroundColor: dayColor(d) }]}
-                      onPress={() => setSelectedDay(d)}
-                    />
+                  {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                    <View key={i} style={styles.dowHeader}>
+                      <Text style={styles.dowText}>{d}</Text>
+                    </View>
                   ))}
+                </View>
+                <View style={styles.grid7}>
+                  {calendarDays.map((cell, i) => {
+                    if (cell.day === null) {
+                      return <View key={i} style={styles.square} />;
+                    }
+                    const bg = cell.data
+                      ? dayColor(cell.data)
+                      : cell.isFuture
+                        ? "#F3F4F6"
+                        : "#E5E7EB";
+                    return (
+                      <Pressable
+                        key={i}
+                        style={[
+                          styles.square,
+                          {
+                            backgroundColor: bg,
+                            opacity: cell.isFuture ? 0.4 : 1,
+                          },
+                        ]}
+                        onPress={() => cell.data && setSelectedDay(cell.data)}
+                      >
+                        <Text
+                          style={[
+                            styles.squareLabel,
+                            { color: cell.data ? "rgba(255,255,255,0.9)" : "#9CA3AF" },
+                          ]}
+                        >
+                          {cell.day}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
               <View
                 style={[
                   styles.rowCenter,
-                  { gap: spacing.md, paddingTop: spacing.sm },
+                  { gap: spacing.md, paddingTop: spacing.sm, flexWrap: "wrap" },
                 ]}
               >
                 <View style={styles.legendItem}>
                   <View
-                    style={[styles.legendDot, { backgroundColor: "#3B82F6" }]}
+                    style={[styles.legendDot, { backgroundColor: "#34D399" }]}
                   />
                   <Text style={typography.caption}>No spend</Text>
                 </View>
                 <View style={styles.legendItem}>
                   <View
-                    style={[styles.legendDot, { backgroundColor: "#34D399" }]}
+                    style={[styles.legendDot, { backgroundColor: "#3B82F6" }]}
                   />
                   <Text style={typography.caption}>Under</Text>
                 </View>
@@ -174,6 +241,12 @@ export default function PeriodOverviewScreen() {
                     style={[styles.legendDot, { backgroundColor: "#F87171" }]}
                   />
                   <Text style={typography.caption}>Over</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendDot, { backgroundColor: "#F3F4F6" }]}
+                  />
+                  <Text style={typography.caption}>Future</Text>
                 </View>
               </View>
             </CardContent>
@@ -257,21 +330,20 @@ export default function PeriodOverviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: "#FFFFFF" },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    borderBottomColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
-  backBtn: { padding: spacing.sm, borderRadius: glass.radius },
-  title: typography.subtitle,
-  subtle: typography.caption,
+  title: { fontSize: 18, fontWeight: "700", color: "#111827" },
+  subtle: { fontSize: 12, color: "#6B7280" },
   scroll: { padding: spacing.lg },
   cardHeaderRow: {
     flexDirection: "row",
@@ -316,9 +388,28 @@ const styles = StyleSheet.create({
         spacing.sm * 6) /
       7,
     aspectRatio: 1,
-    borderRadius: glass.radius,
-    borderWidth: 2,
-    borderColor: colors.surface,
+    borderRadius: 999,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  squareLabel: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: "rgba(255,255,255,0.9)",
+  },
+  dowHeader: {
+    width:
+      (Dimensions.get("window").width -
+        spacing.lg * 2 -
+        spacing.xxl * 2 -
+        spacing.sm * 6) /
+      7,
+    alignItems: "center" as const,
+  },
+  dowText: {
+    fontSize: 11,
+    fontWeight: "500" as const,
+    color: "#9CA3AF",
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   legendDot: { width: 12, height: 12, borderRadius: 6 },

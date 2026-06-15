@@ -80,6 +80,7 @@ function loadConfig(): Config {
     console.log(`   - Plaid environment: ${config.plaid.env}`);
     console.log(
       `   - Database configured: ${
+        config.database.url.startsWith("file:") ? "SQLite (local)" :
         config.database.url.includes("localhost") ? "local" : "remote"
       }`
     );

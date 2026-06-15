@@ -82,14 +82,16 @@ export default function EndOfPeriodCelebrationScreen() {
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Close button */}
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.closeBtn}
-          hitSlop={12}
-        >
-          <Ionicons name="close" size={22} color={glassColors.textSecondary} />
-        </Pressable>
+        {/* Close button — inside safe area flow */}
+        <View style={styles.closeBtnRow}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.closeBtn}
+            hitSlop={12}
+          >
+            <Ionicons name="close" size={22} color={glassColors.textSecondary} />
+          </Pressable>
+        </View>
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={{ alignItems: "center", paddingTop: spacing.xl }}>
             <View style={styles.circleXL}>
@@ -233,11 +235,13 @@ export default function EndOfPeriodCelebrationScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  closeBtnRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
   closeBtn: {
-    position: "absolute",
-    top: spacing.sm,
-    right: spacing.lg,
-    zIndex: 10,
     width: 36,
     height: 36,
     borderRadius: 18,

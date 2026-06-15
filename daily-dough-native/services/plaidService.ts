@@ -284,14 +284,109 @@ export function usePlaidLink(config: PlaidLinkConfig) {
 }
 
 /**
+ * Trigger transaction sync (call after user has selected accounts)
+ */
+export async function triggerSync(userId: string): Promise<void> {
+  try {
+    console.log("🔥 Triggering transaction sync for user:", userId);
+    const response = await fetch(`${API_BASE_URL}/plaid/sync-trigger`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || "Sync trigger failed");
+    }
+    console.log("✅ Sync triggered successfully");
+  } catch (error) {
+    console.error("❌ Sync trigger failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Toggle the imported flag on an account
+ */
+export async function toggleAccountImported(
+  accountId: string,
+  imported: boolean
+): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/plaid/accounts`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account_id: accountId, imported }),
+    });
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || "Failed to update account");
+    }
+    return data.account;
+  } catch (error) {
+    console.error("Failed to toggle account:", error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a single account and its transactions
+ */
+export async function deleteAccount(accountId: string): Promise<void> {
+  try {
+    console.log("🗑️ Deleting account:", accountId);
+    const response = await fetch(
+      `${API_BASE_URL}/plaid/accounts?account_id=${encodeURIComponent(accountId)}`,
+      { method: "DELETE" },
+    );
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || "Failed to delete account");
+    }
+    console.log("✅ Account deleted:", accountId);
+  } catch (error) {
+    console.error("❌ Delete account failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Disconnect all accounts for a user (delete item, accounts, transactions)
+ */
+export async function disconnectAllAccounts(userId: string): Promise<void> {
+  try {
+    console.log("🗑️ Disconnecting all accounts for user:", userId);
+    const response = await fetch(
+      `${API_BASE_URL}/plaid/accounts?userId=${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    );
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || "Failed to disconnect accounts");
+    }
+    console.log("✅ All accounts disconnected");
+  } catch (error) {
+    console.error("❌ Disconnect failed:", error);
+    throw error;
+  }
+}
+
+/**
  * Fetch user accounts after successful linking
  */
-export async function fetchUserAccounts(userId: string): Promise<any[]> {
+export async function fetchUserAccounts(
+  userId: string,
+  options: { importedOnly?: boolean } = {}
+): Promise<any[]> {
   try {
-    console.log("📊 Fetching accounts for user:", userId);
+    const params = new URLSearchParams({ userId });
+    if (options.importedOnly) params.set("imported_only", "true");
+
+    console.log(`📊 Fetching accounts for user: ${userId} (imported_only=${!!options.importedOnly})`);
 
     const response = await fetch(
-      `${API_BASE_URL}/plaid/accounts?userId=${userId}`
+      `${API_BASE_URL}/plaid/accounts?${params}`
     );
     const data = await response.json();
 

@@ -40,6 +40,7 @@ model Account {
   subtype      String?
   mask         String?
   balances     String
+  imported     Boolean       @default(true)
   raw          String
   updatedAt    DateTime      @updatedAt
   item         Item          @relation(fields: [item_id], references: [item_id], onDelete: Cascade)

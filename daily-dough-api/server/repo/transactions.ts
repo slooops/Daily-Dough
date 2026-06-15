@@ -36,6 +36,7 @@ export interface TransactionListOptions {
   limit?: number;
   offset?: number;
   includeRemoved?: boolean;
+  onlyImportedAccounts?: boolean;
 }
 
 /**
@@ -201,6 +202,9 @@ export async function listByPeriod(
   if (!options.includeRemoved) {
     where.status = "active";
   }
+  if (options.onlyImportedAccounts) {
+    where.account = { imported: true };
+  }
 
   return await db.transaction.findMany({
     where,
@@ -237,6 +241,15 @@ export async function getByIds(
     where: {
       transaction_id: { in: transaction_ids },
     },
+  });
+}
+
+/**
+ * Delete all transactions for a single account
+ */
+export async function deleteByAccount(account_id: string): Promise<void> {
+  await db.transaction.deleteMany({
+    where: { account_id },
   });
 }
 

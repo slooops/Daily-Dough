@@ -1,18 +1,10 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
-import {
-  Settings,
-  BarChart3,
-  Receipt,
-  ChevronRight,
-} from "lucide-react-native";
-import {
-  fetchUserTransactions,
-  refreshTransactions,
-} from "../../services/plaidService";
+import { Receipt } from "lucide-react-native";
+import { fetchUserTransactions } from "../../services/plaidService";
 import { fetchAllowanceToday } from "../../services/allowanceService";
 import { DailyDial } from "../../components/DailyDial";
 import { SyncStatus } from "../../components/SyncStatus.native";
@@ -32,59 +24,6 @@ import { useMorningOpen } from "../../hooks/useMorningOpen";
 import { inferCategoryFromMerchant } from "../../utils/categoryInference";
 import { glass, glassColors } from "../../styles/theme";
 import { spacing, borderRadius } from "../../styles/common";
-
-const sampleData = {
-  period: { discretionary_total: 1400 },
-  today: {
-    daily_allowance: 100,
-    date: "2025-08-18",
-    carryover_from_yesterday: -12,
-  },
-  slush: { current: 13 },
-  streaks: { blue_days_this_period: 3, orange_current_streak: 7 },
-  transactions: [
-    {
-      transaction_id: "demo_tx_coffee_001",
-      account_id: "demo_account_checking",
-      name: "Blue Bottle Coffee",
-      merchant_name: "Blue Bottle",
-      amount: 5.0, // Positive = expense in Plaid format
-      category_primary: "Food and Drink",
-      category_secondary: "Coffee",
-      date: new Date("2025-08-18"),
-    },
-    {
-      transaction_id: "demo_tx_payment_001",
-      account_id: "demo_account_checking",
-      name: "USAA → Bilt Card Payment",
-      merchant_name: "USAA",
-      amount: 300.0, // Positive = expense/payment
-      category_primary: "Payment",
-      category_secondary: "Credit Card",
-      date: new Date("2025-08-18"),
-    },
-    {
-      transaction_id: "demo_tx_rent_001",
-      account_id: "demo_account_checking",
-      name: "Monthly Rent Payment",
-      merchant_name: "Rent",
-      amount: 1200.0, // Positive = expense
-      category_primary: "Payment",
-      category_secondary: "Rent",
-      date: new Date("2025-08-18"),
-    },
-    {
-      transaction_id: "demo_tx_payroll_001",
-      account_id: "demo_account_checking",
-      name: "ACH Electronic Credit GUSTO PAY 123456",
-      merchant_name: null,
-      amount: -5850.0, // Negative = credit/income in Plaid
-      category_primary: "Payroll",
-      category_secondary: null,
-      date: new Date("2025-09-15"),
-    },
-  ] as Transaction[],
-};
 
 export default function Home() {
   const router = useRouter();
@@ -147,7 +86,7 @@ export default function Home() {
       logger.info("Starting transaction fetch", {
         component: "Home",
         action: "loadTransactions",
-        data: { userId, limit: 20 },
+        data: { userId, limit: 200 },
       });
 
       // Get transactions from the last 2 months for faster development
@@ -155,8 +94,8 @@ export default function Home() {
       twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
       const result = await fetchUserTransactions(userId, {
-        limit: 20, // Reasonable limit for development
-        since: twoMonthsAgo.toISOString().split("T")[0], // Last 2 months
+        limit: 200,
+        since: twoMonthsAgo.toISOString().split("T")[0],
       });
 
       // Handle initializing status
@@ -221,6 +160,13 @@ export default function Home() {
         },
       );
 
+      // Log sample transactions at indices 0, 50, 150 for debugging
+      for (const idx of [0, 50, 150]) {
+        if (transformedTransactions[idx]) {
+          console.log(`📋 Sample transaction [${idx}]:`, JSON.stringify(transformedTransactions[idx], null, 2));
+        }
+      }
+
       setRealTransactions(transformedTransactions);
       logger.success(
         `Loaded ${transformedTransactions.length} real transactions`,
@@ -235,19 +181,11 @@ export default function Home() {
         component: "Home",
         action: "loadTransactions",
       });
-      // Fall back to sample data if API fails
-      setRealTransactions(sampleData.transactions);
     } finally {
       setIsLoadingTransactions(false);
       setSyncStatus("idle");
     }
   }, []);
-
-  // Load transactions on mount
-  useEffect(() => {
-    loadTransactions();
-    loadAllowance();
-  }, [loadTransactions, loadAllowance]);
 
   // Polling logic for initializing status
   useEffect(() => {
@@ -258,7 +196,7 @@ export default function Home() {
       pollInterval = setInterval(() => {
         console.log("🔄 Polling for transactions...");
         loadTransactions();
-      }, 5000); // Poll every 5 seconds
+      }, 5000);
     }
 
     return () => {
@@ -268,36 +206,30 @@ export default function Home() {
     };
   }, [syncStatus, loadTransactions]);
 
-  // Reload transactions when screen comes into focus (after navigation)
+  // Single load point: useFocusEffect fires on mount AND on re-focus, so no need for useEffect
   useFocusEffect(
     useCallback(() => {
       logger.navigation("Home", "focused - reloading data");
       loadTransactions();
       loadAllowance();
     }, [loadTransactions, loadAllowance]),
-  ); // Use real transactions or fallback to sample data
-  const transactions =
-    realTransactions.length > 0 ? realTransactions : sampleData.transactions;
+  );
 
-  // Use engine data or fallback to sample data
-  const dailyAllowance =
-    allowance?.allowanceToday ?? sampleData.today.daily_allowance;
+  const transactions = realTransactions;
+  const hasData = allowance !== null || realTransactions.length > 0;
+
+  const dailyAllowance = allowance?.allowanceToday ?? 0;
   const todaySpent = allowance?.spendToday ?? 0;
   const spendableToday = dailyAllowance - todaySpent;
-  const slushAmount = allowance?.slushBalance ?? sampleData.slush.current;
-  const periodBudget =
-    allowance?.periodBudget ?? sampleData.period.discretionary_total;
-  const remainingThisPeriod = allowance
-    ? allowance.slushBalance
-    : sampleData.period.discretionary_total;
+  const slushAmount = allowance?.slushBalance ?? 0;
+  const periodBudget = allowance?.periodBudget ?? 0;
+  const remainingThisPeriod = allowance?.slushBalance ?? 0;
   const periodProgress =
     periodBudget > 0
       ? ((periodBudget - Math.max(0, remainingThisPeriod)) / periodBudget) * 100
       : 0;
-  const streakBlue =
-    allowance?.streakCurrent ?? sampleData.streaks.blue_days_this_period;
-  const streakOrange =
-    allowance?.streakLongest ?? sampleData.streaks.orange_current_streak;
+  const streakBlue = allowance?.streakCurrent ?? 0;
+  const streakOrange = allowance?.streakLongest ?? 0;
 
   // Transform transaction data for TransactionTable component
   const transactionTableData = transactions.map((t) => ({
@@ -390,16 +322,39 @@ export default function Home() {
           </View>
 
           {/* Transactions */}
-          <TransactionTable
-            title={
-              realTransactions.length > 0
-                ? "Recent Transactions"
-                : "Recent Transactions (Demo Data)"
-            }
-            headerIcon={<Receipt size={16} color={glassColors.accent} />}
-            data={transactionTableData}
-            style={{ marginHorizontal: spacing.xl, marginBottom: spacing.xl }}
-          />
+          {transactions.length > 0 ? (
+            <TransactionTable
+              title={`Recent Transactions (${transactions.length})`}
+              headerIcon={<Receipt size={16} color={glassColors.accent} />}
+              data={transactionTableData}
+              style={{ marginHorizontal: spacing.xl, marginBottom: spacing.xl }}
+            />
+          ) : (
+            <GlassCard style={{ marginHorizontal: spacing.xl, marginBottom: spacing.xl }}>
+              <GlassCardContent>
+                <View style={{ alignItems: "center", paddingVertical: spacing.lg }}>
+                  <Receipt size={32} color={glassColors.textSecondary} />
+                  <Text style={[styles.label, { marginTop: spacing.md, textAlign: "center" }]}>
+                    {syncStatus === "initializing"
+                      ? "Transactions loading..."
+                      : "No transactions yet"}
+                  </Text>
+                  <Text style={[styles.label, { marginTop: spacing.sm, textAlign: "center", fontSize: 12 }]}>
+                    {syncStatus === "initializing"
+                      ? "Plaid is preparing your transaction data. This can take a minute."
+                      : "Connect a bank account to start tracking your spending"}
+                  </Text>
+                  {syncStatus !== "initializing" && (
+                    <GlassButton
+                      title="Connect Account"
+                      onPress={() => router.push("/connect-accounts")}
+                      style={{ marginTop: spacing.lg }}
+                    />
+                  )}
+                </View>
+              </GlassCardContent>
+            </GlassCard>
+          )}
 
           {/* Bottom spacer for tab bar */}
           <View style={{ height: 80 }} />
@@ -453,27 +408,5 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: spacing.xl,
     gap: spacing.sm,
-  },
-  actionsContainer: {
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
-    marginBottom: spacing.xl + 20,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.6)",
-    borderRadius: glass.radius,
-    borderWidth: glass.borderWidth,
-    borderColor: glass.borderColor,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    gap: spacing.sm,
-  },
-  actionButtonText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: glassColors.accent,
   },
 });

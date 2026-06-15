@@ -137,23 +137,24 @@ export function DailyDial({
     [],
   );
 
-  const ConfettiPiece = React.memo(({ index }: { index: number }) => {
+  const renderConfettiPiece = (index: number) => {
     const position = confettiPositions[index];
 
     if (Platform.OS === "web") {
       return (
         <View
+          key={index}
           style={[
             styles.confetti,
             {
               left: `${position.left}%`,
               top: `${position.top}%`,
               backgroundColor: stateColors.gradient[0],
-              opacity: showConfetti ? 1 : 0,
+              opacity: 1,
               transform: [
-                { scale: showConfetti ? 1.1 : 0 },
-                { translateX: showConfetti ? position.translateX : 0 },
-                { translateY: showConfetti ? position.translateY : 0 },
+                { scale: 1.1 },
+                { translateX: position.translateX },
+                { translateY: position.translateY },
               ],
             },
           ]}
@@ -182,15 +183,13 @@ export function DailyDial({
         ]}
       />
     );
-  });
+  };
 
   return (
     <View style={styles.center}>
       {showConfetti && (
         <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <ConfettiPiece key={i} index={i} />
-          ))}
+          {Array.from({ length: 12 }).map((_, i) => renderConfettiPiece(i))}
         </View>
       )}
 

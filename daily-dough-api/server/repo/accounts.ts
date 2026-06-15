@@ -13,8 +13,9 @@ export interface AccountInput {
   type: string;
   subtype?: string;
   mask?: string;
-  balances: object; // Will be JSON stringified
-  raw: object; // Full Plaid response
+  balances: object;
+  raw: object;
+  imported?: boolean;
 }
 
 /**
@@ -47,6 +48,7 @@ export async function upsertMany(
         mask: account.mask ?? null,
         balances: JSON.stringify(account.balances),
         raw: JSON.stringify(account.raw),
+        imported: account.imported ?? true,
       },
     });
     results.push(result);
@@ -70,6 +72,38 @@ export async function listByItem(item_id: string): Promise<Account[]> {
  */
 export async function getById(account_id: string): Promise<Account | null> {
   return await db.account.findUnique({
+    where: { account_id },
+  });
+}
+
+/**
+ * Update the imported flag for a single account
+ */
+export async function updateImported(
+  account_id: string,
+  imported: boolean
+): Promise<Account> {
+  return await db.account.update({
+    where: { account_id },
+    data: { imported },
+  });
+}
+
+/**
+ * List only imported accounts for an item
+ */
+export async function listImportedByItem(item_id: string): Promise<Account[]> {
+  return await db.account.findMany({
+    where: { item_id, imported: true },
+    orderBy: { account_id: "asc" },
+  });
+}
+
+/**
+ * Delete a single account and its transactions (cascade handles transactions)
+ */
+export async function deleteOne(account_id: string): Promise<void> {
+  await db.account.delete({
     where: { account_id },
   });
 }

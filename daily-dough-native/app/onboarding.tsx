@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { glass, glassColors } from "../styles/theme";
 import { spacing, borderRadius } from "../styles/common";
 
@@ -36,8 +37,12 @@ export default function Onboarding() {
   const [grossPaycheck, setGrossPaycheck] = useState("");
   const [payCadence, setPayCadence] = useState<PayCadence>("biweekly");
   const [monthlyRent, setMonthlyRent] = useState("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
+  const [periodStart, setPeriodStart] = useState(new Date());
+  const [periodEnd, setPeriodEnd] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d;
+  });
 
   const totalSteps = 3;
 
@@ -63,19 +68,9 @@ export default function Onboarding() {
     if (step > 1) setStep(step - 1);
   };
 
+  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+
   const handleSave = async () => {
-    if (!periodStart || !periodEnd) {
-      Alert.alert("Required", "Enter your pay period start and end dates");
-      return;
-    }
-
-    // Basic date format validation
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(periodStart) || !dateRegex.test(periodEnd)) {
-      Alert.alert("Invalid Date", "Use YYYY-MM-DD format (e.g. 2026-05-01)");
-      return;
-    }
-
     if (periodEnd <= periodStart) {
       Alert.alert("Invalid Dates", "End date must be after start date");
       return;
@@ -91,8 +86,8 @@ export default function Onboarding() {
           grossPaycheck: parseFloat(grossPaycheck),
           payCadence,
           monthlyRent: parseFloat(monthlyRent),
-          periodStart,
-          periodEnd,
+          periodStart: formatDate(periodStart),
+          periodEnd: formatDate(periodEnd),
         }),
       });
 
@@ -156,7 +151,7 @@ export default function Onboarding() {
               <View style={styles.stepContainer}>
                 <Text style={styles.stepTitle}>How much is your paycheck?</Text>
                 <Text style={styles.stepDesc}>
-                  Enter your gross (pre-tax) pay per check
+                  Enter your take-home (post-tax) pay per check
                 </Text>
                 <View style={styles.inputRow}>
                   <Text style={styles.dollar}>$</Text>
@@ -228,28 +223,28 @@ export default function Onboarding() {
                   When is your current pay period?
                 </Text>
                 <Text style={styles.stepDesc}>
-                  Enter start and end dates (YYYY-MM-DD)
+                  Select the start and end dates
                 </Text>
 
                 <Text style={styles.fieldLabel}>Period Start</Text>
-                <TextInput
-                  style={styles.dateInput}
+                <DateTimePicker
                   value={periodStart}
-                  onChangeText={setPeriodStart}
-                  placeholder="2026-05-01"
-                  placeholderTextColor="#94A3B8"
-                  autoFocus
+                  mode="date"
+                  display="inline"
+                  onChange={(_, date) => date && setPeriodStart(date)}
+                  style={{ height: 320 }}
                 />
 
                 <Text style={[styles.fieldLabel, { marginTop: spacing.lg }]}>
                   Period End
                 </Text>
-                <TextInput
-                  style={styles.dateInput}
+                <DateTimePicker
                   value={periodEnd}
-                  onChangeText={setPeriodEnd}
-                  placeholder="2026-05-14"
-                  placeholderTextColor="#94A3B8"
+                  mode="date"
+                  display="inline"
+                  minimumDate={periodStart}
+                  onChange={(_, date) => date && setPeriodEnd(date)}
+                  style={{ height: 320 }}
                 />
               </View>
             )}

@@ -75,7 +75,7 @@ export async function GET() {
 
     console.log(`📊 Found ${accounts.length} accounts`);
 
-    // Step 6: Save accounts to repository
+    // Step 6: Save accounts with imported=false (user picks which to import)
     const accountsToSave = accountsResponse.data.accounts.map((acc) => ({
       account_id: acc.account_id,
       item_id: item_id,
@@ -85,22 +85,22 @@ export async function GET() {
       mask: acc.mask || undefined,
       balances: acc.balances,
       raw: acc,
+      imported: false,
     }));
 
     const savedAccounts = await accountsRepo.upsertMany(
       item_id,
       accountsToSave
     );
-    console.log(`💾 Saved ${savedAccounts.length} accounts to repository`);
+    console.log(`💾 Saved ${savedAccounts.length} accounts (all imported=false, awaiting user selection)`);
 
     return NextResponse.json({
       success: true,
-      message: "Sandbox item created successfully",
+      message: "Sandbox item created — select accounts to import",
       item_id: savedItem.id,
       institution_name: institutionName,
       accounts_count: accounts.length,
-      accounts: accounts.slice(0, 3), // Show first 3 accounts
-      note: "This is a sandbox item for development/testing",
+      accounts: accounts.map((a) => ({ ...a, imported: false })),
     });
   } catch (error: any) {
     console.error("❌ Sandbox quicklink failed:", error);

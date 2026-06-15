@@ -12,20 +12,24 @@ import {
   Building2,
   Check,
   ChevronLeft,
-  Eye,
+  FlaskConical,
   Loader2,
   Lock,
+  Pause,
+  Play,
   Shield,
+  Trash2,
 } from "lucide-react-native";
 import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Separator } from "../components/ui/Separator";
-import { TransactionTable } from "../components/ui/TransactionTable";
-import { SyncStatus } from "../components/SyncStatus.native";
 import { glass } from "../styles/theme";
 import {
   usePlaidLink,
   fetchUserAccounts,
+  toggleAccountImported,
+  deleteAccount,
+  triggerSync,
   ExchangeTokenResponse,
 } from "../services/plaidService";
 
@@ -38,6 +42,9 @@ export default function ConnectAccountsScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<string>("");
+
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // User ID for this demo - in a real app, this would come from authentication
   const userId = "demo";
@@ -112,6 +119,7 @@ export default function ConnectAccountsScreen() {
         status: "idle" as const,
         accountType: capitalizeFirst(account.subtype || account.type),
         balance: account.balances?.current || 0,
+        imported: account.imported ?? true,
       }));
 
       setAccounts(transformedAccounts);
@@ -129,6 +137,44 @@ export default function ConnectAccountsScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleToggleImported = async (accountId: string, newValue: boolean) => {
+    try {
+      await toggleAccountImported(accountId, newValue);
+      setAccounts((prev) => {
+        const updated = prev.map((a) =>
+          a.id === accountId ? { ...a, imported: newValue } : a,
+        );
+        const importedCount = updated.filter((a) => a.imported).length;
+        console.log(`🔄 Toggled ${accountId} → imported=${newValue} | ${importedCount}/${updated.length} accounts imported`);
+        return updated;
+      });
+    } catch (error) {
+      console.error("Failed to toggle account:", error);
+    }
+  };
+
+  const handleDeleteAccount = (account: any) => {
+    Alert.alert(
+      "Delete Account",
+      `Remove "${account.name}" and all its transactions? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccount(account.id);
+              setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete account. Please try again.");
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Helper functions
@@ -150,20 +196,6 @@ export default function ConnectAccountsScreen() {
   const capitalizeFirst = (str: string) => {
     return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
   };
-
-  // Transform accounts for TransactionTable component
-  const accountTableData = accounts.map((account) => ({
-    id: account.id,
-    merchant: account.name,
-    date: account.lastSynced, // Not used for account tables
-    emoji: account.logo,
-    provider: account.accountType, // Use accountType for connect-accounts
-    balance: account.balance,
-    syncStatus: {
-      status: account.status,
-      lastSynced: account.lastSynced,
-    },
-  }));
 
   const providers = [
     {
@@ -210,6 +242,33 @@ export default function ConnectAccountsScreen() {
         "Unable to start bank connection. Please check your internet connection and try again.",
         [{ text: "OK" }],
       );
+    }
+  };
+
+  const handleLoadDemoData = async () => {
+    try {
+      setIsLoadingDemo(true);
+      setConnectionStatus("Loading demo data from Plaid sandbox...");
+
+      const response = await fetch("http://localhost:3000/api/plaid/sandbox-quicklink");
+      const data = await response.json();
+
+      if (data.success) {
+        setConnectionStatus(`Demo data loaded from ${data.institution_name}`);
+        await refreshAccounts();
+      } else {
+        throw new Error(data.error || "Failed to load demo data");
+      }
+    } catch (error) {
+      console.error("Demo data load failed:", error);
+      setConnectionStatus("Failed to load demo data");
+      Alert.alert(
+        "Demo Data Error",
+        "Could not load demo data. Make sure the API server is running.",
+        [{ text: "OK" }],
+      );
+    } finally {
+      setIsLoadingDemo(false);
     }
   };
 
@@ -348,20 +407,78 @@ export default function ConnectAccountsScreen() {
           </Text>
         </Pressable>
 
-        {/* Connected accounts */}
+        {/* Demo data button */}
+        <Pressable
+          onPress={handleLoadDemoData}
+          disabled={isLoadingDemo}
+          style={[
+            styles.buttonSecondary,
+            { marginBottom: 16, borderColor: "#8B5CF6", borderStyle: "dashed" },
+            isLoadingDemo && { opacity: 0.7 },
+          ]}
+        >
+          {isLoadingDemo ? (
+            <Loader2 size={16} color="#8B5CF6" />
+          ) : (
+            <FlaskConical size={16} color="#8B5CF6" />
+          )}
+          <Text style={[styles.buttonSecondaryText, { marginLeft: 6, color: "#8B5CF6" }]}>
+            {isLoadingDemo ? "Loading Demo Data..." : "Load Demo Data"}
+          </Text>
+        </Pressable>
+
+        {/* Connected accounts with import toggles */}
         {(accounts.length > 0 || isLoading) && (
-          <TransactionTable
-            title={isLoading ? "Loading Accounts..." : "Connected Accounts"}
-            headerIcon={
-              isLoading ? (
-                <Loader2 size={16} color="#16A34A" />
-              ) : (
-                <Check size={16} color="#16A34A" />
-              )
-            }
-            data={accountTableData}
-            style={{ marginBottom: 16 }}
-          />
+          <Card style={{ marginBottom: 16 }}>
+            <CardContent>
+              <Text style={[styles.cardTitle, { marginBottom: 4 }]}>
+                {isLoading ? "Loading Accounts..." : "Your Accounts"}
+              </Text>
+              <Text style={[styles.muted, { marginBottom: 12 }]}>
+                Toggle which accounts to import transactions from
+              </Text>
+              {accounts.map((account, index) => (
+                <View key={account.id}>
+                  {index > 0 && <Separator style={{ marginVertical: 8 }} />}
+                  <View style={styles.accountRow}>
+                    <View style={styles.accountLogo}>
+                      <Text style={{ fontSize: 20 }}>{account.logo}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemTitle}>{account.name}</Text>
+                      <Text style={styles.muted}>
+                        {account.accountType} · ${account.balance.toLocaleString()}
+                        {!account.imported && " · Paused"}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <Pressable
+                        onPress={() => handleToggleImported(account.id, !account.imported)}
+                        style={[
+                          styles.actionBtn,
+                          account.imported
+                            ? { backgroundColor: "#FEF3C7" }
+                            : { backgroundColor: "#DBEAFE" },
+                        ]}
+                      >
+                        {account.imported ? (
+                          <Pause size={16} color="#D97706" />
+                        ) : (
+                          <Play size={16} color="#2563EB" />
+                        )}
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDeleteAccount(account)}
+                        style={[styles.actionBtn, { backgroundColor: "#FEE2E2" }]}
+                      >
+                        <Trash2 size={16} color="#DC2626" />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </CardContent>
+          </Card>
         )}
 
         {/* Privacy note */}
@@ -380,22 +497,45 @@ export default function ConnectAccountsScreen() {
           </CardContent>
         </Card>
 
-        {/* Continue */}
-        <Pressable
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.push("/settings");
-            }
-          }}
-          style={[styles.buttonSecondary, { marginBottom: 24 }]}
-        >
-          <Eye size={16} color="#111827" />
-          <Text style={[styles.buttonSecondaryText, { marginLeft: 6 }]}>
-            Continue Setup
-          </Text>
-        </Pressable>
+        {/* Start importing — only show when accounts exist and at least one is imported */}
+        {accounts.length > 0 && (
+          <Pressable
+            onPress={async () => {
+              const importedCount = accounts.filter((a) => a.imported).length;
+              if (importedCount === 0) {
+                Alert.alert("No Accounts Selected", "Toggle on at least one account to import.");
+                return;
+              }
+              setIsSyncing(true);
+              try {
+                await triggerSync(userId);
+                router.replace("/");
+              } catch (error) {
+                console.error("Sync trigger failed:", error);
+                Alert.alert("Sync Error", "Failed to start syncing. Try again.");
+              } finally {
+                setIsSyncing(false);
+              }
+            }}
+            disabled={isSyncing}
+            style={[
+              styles.buttonPrimary,
+              { backgroundColor: "#16A34A", marginBottom: 24 },
+              isSyncing && { opacity: 0.7 },
+            ]}
+          >
+            {isSyncing ? (
+              <Loader2 size={16} color="#fff" />
+            ) : (
+              <Check size={16} color="#fff" />
+            )}
+            <Text style={[styles.buttonPrimaryText, { marginLeft: 6 }]}>
+              {isSyncing
+                ? "Starting sync..."
+                : `Start Importing (${accounts.filter((a) => a.imported).length} accounts)`}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
     </View>
   );
@@ -499,4 +639,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   buttonSecondaryText: { fontWeight: "600", color: "#111827" },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 4,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

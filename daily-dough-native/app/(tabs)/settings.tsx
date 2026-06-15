@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
@@ -11,8 +11,9 @@ import {
   Plus,
   Receipt,
   Loader2,
+  Trash2,
 } from "lucide-react-native";
-import { fetchUserAccounts } from "../../services/plaidService";
+import { fetchUserAccounts, fetchUserTransactions, disconnectAllAccounts } from "../../services/plaidService";
 import { Badge } from "../../components/ui/Badge";
 import { Separator } from "../../components/ui/Separator";
 import { Card, CardContent } from "../../components/ui/Card";
@@ -27,27 +28,68 @@ export default function SettingsScreen() {
   const [manualInputEnabled, setManualInputEnabled] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+  const [transactionCount, setTransactionCount] = useState<number | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // User ID for this demo - in a real app, this would come from authentication
   const userId = "demo";
+
+  const loadTransactionCount = useCallback(async () => {
+    try {
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      const result = await fetchUserTransactions(userId, {
+        limit: 200,
+        since: twoMonthsAgo.toISOString().split("T")[0],
+      });
+      setTransactionCount(result.transactions?.length ?? 0);
+    } catch {
+      setTransactionCount(null);
+    }
+  }, []);
+
+  const handleDisconnect = useCallback(() => {
+    Alert.alert(
+      "Disconnect All Accounts",
+      "This will remove all connected accounts, transactions, and sync data. You can reconnect anytime.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDisconnecting(true);
+              await disconnectAllAccounts(userId);
+              setAccounts([]);
+              setTransactionCount(0);
+            } catch (error) {
+              Alert.alert("Error", "Failed to disconnect accounts. Please try again.");
+            } finally {
+              setIsDisconnecting(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [userId]);
 
   // Load accounts function
   const loadAccounts = useCallback(async () => {
     try {
       setIsLoadingAccounts(true);
-      const userAccounts = await fetchUserAccounts(userId);
+      const userAccounts = await fetchUserAccounts(userId, { importedOnly: true });
 
-      // Transform API accounts to UI format
       const transformedAccounts = userAccounts.map((account: any) => ({
-        id: account.id,
-        name: account.name,
-        logo: getAccountLogo(account.type),
-        provider: "Plaid",
-        lastSynced: account.updated_at || new Date().toISOString(),
-        status: "idle" as const,
-        accountType: capitalizeFirst(account.subtype || account.type),
-        balance: account.balances?.current || 0,
-      }));
+          id: account.id,
+          name: account.name,
+          logo: getAccountLogo(account.type),
+          provider: "Plaid",
+          lastSynced: account.updated_at || new Date().toISOString(),
+          status: "idle" as const,
+          accountType: capitalizeFirst(account.subtype || account.type),
+          balance: account.balances?.current || 0,
+        }));
 
       setAccounts(transformedAccounts);
     } catch (error) {
@@ -62,17 +104,15 @@ export default function SettingsScreen() {
   // Load accounts on mount
   useEffect(() => {
     loadAccounts();
-  }, [loadAccounts]);
+    loadTransactionCount();
+  }, [loadAccounts, loadTransactionCount]);
 
-  // Reload accounts when screen comes into focus (after navigation)
+  // Reload when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Only reload if we have existing data (avoid double-loading on first mount)
-      if (accounts.length > 0) {
-        console.log("⚙️ Settings screen focused, reloading accounts...");
-        loadAccounts();
-      }
-    }, [loadAccounts, accounts.length]),
+      loadAccounts();
+      loadTransactionCount();
+    }, [loadAccounts, loadTransactionCount]),
   );
 
   // Helper functions
@@ -113,8 +153,14 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.root}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtle}>Manage your Daily Dollars</Text>
+        <View>
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtle}>
+            {transactionCount !== null
+              ? `${accounts.length} accounts · ${transactionCount} transactions`
+              : "Manage your Daily Dollars"}
+          </Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -126,7 +172,7 @@ export default function SettingsScreen() {
           style={{ marginBottom: spacing.xl }}
         />
 
-        {/* Connect New Account Button */}
+        {/* Account Actions */}
         <Card style={{ marginBottom: spacing.xl }}>
           <CardContent>
             <Pressable
@@ -138,6 +184,22 @@ export default function SettingsScreen() {
                 Connect New Account
               </Text>
             </Pressable>
+            {accounts.length > 0 && (
+              <Pressable
+                onPress={handleDisconnect}
+                disabled={isDisconnecting}
+                style={[styles.buttonOutline, styles.rowCenter, {
+                  marginTop: spacing.md,
+                  borderColor: "#EF4444",
+                  opacity: isDisconnecting ? 0.5 : 1,
+                }]}
+              >
+                <Trash2 size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                <Text style={[typography.bodyMedium, { color: "#EF4444", fontWeight: "600" }]}>
+                  {isDisconnecting ? "Disconnecting..." : "Disconnect All Accounts"}
+                </Text>
+              </Pressable>
+            )}
           </CardContent>
         </Card>
 
@@ -222,6 +284,30 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
+        {/* Budget Setup */}
+        <Card style={{ marginBottom: spacing.xl }}>
+          <CardContent>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.circle, { backgroundColor: "#DCFCE7" }]}>
+                <Receipt size={16} color="#16A34A" />
+              </View>
+              <Text style={typography.heading}>Budget Setup</Text>
+            </View>
+            <Pressable
+              onPress={() => router.push("/onboarding")}
+              style={[styles.settingItem, styles.rowBetween]}
+            >
+              <View>
+                <Text style={typography.bodyMedium}>Income & Pay Period</Text>
+                <Text style={typography.caption}>
+                  Update paycheck, rent, and period dates
+                </Text>
+              </View>
+              <ChevronRight size={16} color="#6B7280" />
+            </Pressable>
+          </CardContent>
+        </Card>
+
         {/* Help & Info */}
         <Card style={{ marginBottom: spacing.xl }}>
           <CardContent>
@@ -265,21 +351,20 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: "#FFFFFF" },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    borderBottomColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
-  backBtn: { padding: spacing.sm, borderRadius: glass.radius },
-  title: typography.subtitle,
-  subtle: typography.caption,
+  title: { fontSize: 18, fontWeight: "700", color: "#111827" },
+  subtle: { fontSize: 12, color: "#6B7280" },
   scroll: { padding: spacing.lg },
   cardHeaderRow: {
     flexDirection: "row",

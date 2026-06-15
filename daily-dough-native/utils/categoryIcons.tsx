@@ -36,6 +36,7 @@ export type CategoryType =
   | "Recreation" // NEW: For gyms, sports, hobbies
   | "Personal Care" // NEW: For grooming, beauty
   | "Professional Services" // NEW: For business services
+  | "Services" // General services
   | "Financial" // NEW: For bank fees, investments
   | "Income" // NEW: For paychecks, bonuses
   | "Grocery" // NEW: Separate from general food
@@ -140,6 +141,7 @@ export const getCategoryConfig = (category: string): CategoryConfig => {
       };
 
     case "Professional Services":
+    case "Services":
       return {
         icon: <Briefcase size={16} color="#374151" />,
         backgroundColor: "#F3F4F6",
